@@ -106,8 +106,14 @@ export async function POST(req: Request) {
     const existingTracks = Array.isArray(existingCatalog.tracks) ? existingCatalog.tracks : [];
 
     const finalTracksMap = new Map();
-    existingTracks.forEach((t) => {
-      finalTracksMap.set(t.id, { ...t });
+    const existingIds = new Set(existingTracks.map((t: any) => t.id));
+    const existingSpotifyIds = new Set(existingTracks.map((t: any) => t.spotifyTrackId).filter(Boolean));
+    const existingAltIdToMainId = new Map();
+    existingTracks.forEach((t: any) => {
+      const altIds = Array.isArray(t.alternativeIds) ? t.alternativeIds : [];
+      altIds.forEach((altId: string) => {
+        existingAltIdToMainId.set(altId, t.id);
+      });
     });
 
     const pendingWrites = [];
@@ -119,72 +125,70 @@ export async function POST(req: Request) {
       const trackId = track.spotifyTrackId || track.id;
       if (!trackId) continue;
 
-      // Check if this track is already known (exists in finalTracksMap or alternativeIds)
-      let matchedTrack = Array.from(finalTracksMap.values()).find((et) => {
-        if (et.id === trackId || et.spotifyTrackId === trackId) return true;
-        const altIds = Array.isArray(et.alternativeIds) ? et.alternativeIds : [];
-        return altIds.includes(trackId);
-      });
+      // Check if this is an existing track in the database
+      const isExisting =
+        existingIds.has(track.id) ||
+        existingSpotifyIds.has(track.spotifyTrackId) ||
+        existingAltIdToMainId.has(track.spotifyTrackId);
 
-      if (matchedTrack) {
-        continue;
-      }
-
-      // Check for exact title match (excluding intros)
-      const isIntro = track.title.toLowerCase().includes("intro");
-      const exactMatch = !isIntro && Array.from(finalTracksMap.values()).find((et) =>
-        et.title.toLowerCase().trim() === track.title.toLowerCase().trim()
-      );
-
-      if (exactMatch) {
-        // AUTO-MERGE!
-        const alternativeIds = Array.isArray(exactMatch.alternativeIds) ? [...exactMatch.alternativeIds] : [];
-        if (!alternativeIds.includes(trackId)) {
-          alternativeIds.push(trackId);
-        }
-        exactMatch.alternativeIds = alternativeIds;
-        finalTracksMap.set(exactMatch.id, exactMatch);
-
-        // Save validation entry as "auto_merged" to notify admin
-        const pendingRef = db.collection("pending_validations").doc(trackId);
-        pendingWrites.push(
-          pendingRef.set({
-            trackId,
-            trackName: track.title,
-            suggestedSongId: exactMatch.id,
-            suggestedSongTitle: exactMatch.title,
-            coverUrl: track.coverUrl || "/petal.jpg",
-            streams: 0,
-            status: "auto_merged",
-            source: "album_import",
-            date: now.split("T")[0],
-            updatedAt: now
-          }, { merge: true })
-        );
-      } else {
-        // Keep the track as a separate item
-        // But check if there is a clean title match (reconciliation recommendation)
-        const cleanMatch = Array.from(finalTracksMap.values()).find((et) =>
-          cleanTrackTitle(et.title) === cleanTrackTitle(track.title)
-        );
-
+      if (isExisting) {
+        // Keep the track exactly as sent by the client (preserving edits, deletes, unlinks)
         finalTracksMap.set(track.id, track);
-
-        const pendingRef = db.collection("pending_validations").doc(trackId);
-        pendingWrites.push(
-          pendingRef.set({
-            trackId,
-            trackName: track.title,
-            suggestedSongId: cleanMatch?.id || null,
-            suggestedSongTitle: cleanMatch?.title || null,
-            coverUrl: track.coverUrl || "/petal.jpg",
-            streams: 0,
-            status: cleanMatch ? "pending_merge" : "pending_new",
-            source: "album_import",
-            date: now.split("T")[0],
-            updatedAt: now
-          }, { merge: true })
+      } else {
+        // This is a new track: check for auto-merge or reconciliation suggestions
+        const isIntro = String(track.title || "").toLowerCase().includes("intro");
+        const exactMatch = !isIntro && Array.from(finalTracksMap.values()).find((et: any) =>
+          String(et.title || "").toLowerCase().trim() === String(track.title || "").toLowerCase().trim()
         );
+
+        if (exactMatch) {
+          // AUTO-MERGE!
+          const alternativeIds = Array.isArray(exactMatch.alternativeIds) ? [...exactMatch.alternativeIds] : [];
+          if (!alternativeIds.includes(trackId)) {
+            alternativeIds.push(trackId);
+          }
+          exactMatch.alternativeIds = alternativeIds;
+          finalTracksMap.set(exactMatch.id, exactMatch);
+
+          const pendingRef = db.collection("pending_validations").doc(trackId);
+          pendingWrites.push(
+            pendingRef.set({
+              trackId,
+              trackName: track.title,
+              suggestedSongId: exactMatch.id,
+              suggestedSongTitle: exactMatch.title,
+              coverUrl: track.coverUrl || "/petal.jpg",
+              streams: 0,
+              status: "auto_merged",
+              source: "album_import",
+              date: now.split("T")[0],
+              updatedAt: now
+            }, { merge: true })
+          );
+        } else {
+          // Keep the track as a separate item
+          const cleanMatch = Array.from(finalTracksMap.values()).find((et: any) =>
+            cleanTrackTitle(et.title) === cleanTrackTitle(track.title)
+          );
+
+          finalTracksMap.set(track.id, track);
+
+          const pendingRef = db.collection("pending_validations").doc(trackId);
+          pendingWrites.push(
+            pendingRef.set({
+              trackId,
+              trackName: track.title,
+              suggestedSongId: cleanMatch?.id || null,
+              suggestedSongTitle: cleanMatch?.title || null,
+              coverUrl: track.coverUrl || "/petal.jpg",
+              streams: 0,
+              status: cleanMatch ? "pending_merge" : "pending_new",
+              source: "album_import",
+              date: now.split("T")[0],
+              updatedAt: now
+            }, { merge: true })
+          );
+        }
       }
     }
 
