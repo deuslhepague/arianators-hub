@@ -58,20 +58,73 @@ export async function GET(req: Request) {
       });
     }
 
-    const snap = await db.collection("leaderboard")
-      .where("date", "==", dateStr)
-      .get();
+    let list: any[] = [];
+    let shouldRebuild = bypassCache;
 
-    const list: any[] = [];
-    snap.forEach((docSnap) => {
-      const data = docSnap.data();
-      list.push({
-        userId: data.userId,
-        displayName: data.displayName,
-        avatarUrl: data.avatarUrl,
-        streamsToday: data.streamsToday || 0
-      });
-    });
+    if (!shouldRebuild) {
+      const snap = await db.collection("leaderboard")
+        .where("date", "==", dateStr)
+        .get();
+      
+      if (snap.empty) {
+        shouldRebuild = true;
+      } else {
+        snap.forEach((docSnap) => {
+          const data = docSnap.data();
+          list.push({
+            userId: data.userId,
+            displayName: data.displayName,
+            avatarUrl: data.avatarUrl,
+            streamsToday: data.streamsToday || 0
+          });
+        });
+      }
+    }
+
+    if (shouldRebuild) {
+      list = [];
+      const usersSnap = await db.collection("users").get();
+      const batch = db.batch();
+      let hasUpdates = false;
+
+      for (const userDoc of usersSnap.docs) {
+        const userData = userDoc.data() || {};
+        const userId = userDoc.id;
+        const dailySnap = await userDoc.ref.collection("dailyStreams").doc(dateStr).get();
+        
+        if (dailySnap.exists) {
+          const dailyData = dailySnap.data() || {};
+          const totalStreams = Number(dailyData.total || 0);
+          
+          if (totalStreams > 0) {
+            const displayName = userData.displayName || userData.customId || userId;
+            const avatarUrl = userData.avatarUrl || "";
+            const leaderboardRef = db.collection("leaderboard").doc(`${dateStr}_${userId}`);
+            
+            batch.set(leaderboardRef, {
+              userId,
+              displayName,
+              avatarUrl,
+              streamsToday: totalStreams,
+              date: dateStr,
+              lastUpdated: new Date().toISOString()
+            }, { merge: true });
+            
+            list.push({
+              userId,
+              displayName,
+              avatarUrl,
+              streamsToday: totalStreams
+            });
+            hasUpdates = true;
+          }
+        }
+      }
+      
+      if (hasUpdates) {
+        await batch.commit();
+      }
+    }
 
     list.sort((a, b) => b.streamsToday - a.streamsToday);
     const topUsers = list.slice(0, 20);

@@ -189,8 +189,11 @@ export async function POST(req: Request) {
 
               if (id) {
                 trackPlaycounts[id] = playcount;
-                if (!albumIsParticipation || isArianaTrack) {
-                  albumSum += playcount;
+                // Exclude "The Way - Spanglish Version" (3HAQ4fEd3opmo09LJIHOX2) because it shares/duplicates the playcount of the standard version
+                if (id !== "3HAQ4fEd3opmo09LJIHOX2") {
+                  if (!albumIsParticipation || isArianaTrack) {
+                    albumSum += playcount;
+                  }
                 }
               }
             }
