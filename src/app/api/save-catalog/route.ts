@@ -91,9 +91,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { tracks, albums } = body;
 
-    if (!tracks || !albums) {
+    if (!Array.isArray(tracks) || tracks.length === 0 || !Array.isArray(albums) || albums.length === 0) {
       return NextResponse.json(
-        { success: false, error: "Missing tracks or albums" },
+        { success: false, error: "Empty tracks or albums arrays are blocked to prevent catalog data loss." },
         { status: 400 }
       );
     }
@@ -105,53 +105,102 @@ export async function POST(req: Request) {
     const existingCatalog = existingCatalogSnap.exists ? (existingCatalogSnap.data() || {}) : {};
     const existingTracks = Array.isArray(existingCatalog.tracks) ? existingCatalog.tracks : [];
 
-    await catalogRef.set({
-      tracks,
-      albums,
-      updatedAt: new Date().toISOString()
+    const finalTracksMap = new Map();
+    existingTracks.forEach((t) => {
+      finalTracksMap.set(t.id, { ...t });
     });
 
-    const pendingWrites: Promise<unknown>[] = [];
+    const pendingWrites = [];
     const now = new Date().toISOString();
 
     for (const track of tracks) {
-      if (!track || !track.spotifyAlbumId) continue;
-
-      const alreadyKnown = existingTracks.some((catalogTrack: any) => trackMatchesCatalog(track, catalogTrack));
-      if (alreadyKnown) continue;
+      if (!track) continue;
 
       const trackId = track.spotifyTrackId || track.id;
       if (!trackId) continue;
 
-      const titleMatch = existingTracks.find((catalogTrack: any) =>
-        cleanTrackTitle(catalogTrack.title) === cleanTrackTitle(track.title)
+      // Check if this track is already known (exists in finalTracksMap or alternativeIds)
+      let matchedTrack = Array.from(finalTracksMap.values()).find((et) => {
+        if (et.id === trackId || et.spotifyTrackId === trackId) return true;
+        const altIds = Array.isArray(et.alternativeIds) ? et.alternativeIds : [];
+        return altIds.includes(trackId);
+      });
+
+      if (matchedTrack) {
+        continue;
+      }
+
+      // Check for exact title match (excluding intros)
+      const isIntro = track.title.toLowerCase().includes("intro");
+      const exactMatch = !isIntro && Array.from(finalTracksMap.values()).find((et) =>
+        et.title.toLowerCase().trim() === track.title.toLowerCase().trim()
       );
 
-      const pendingRef = db.collection("pending_validations").doc(trackId);
-      pendingWrites.push(
-        pendingRef.set(
-          {
+      if (exactMatch) {
+        // AUTO-MERGE!
+        const alternativeIds = Array.isArray(exactMatch.alternativeIds) ? [...exactMatch.alternativeIds] : [];
+        if (!alternativeIds.includes(trackId)) {
+          alternativeIds.push(trackId);
+        }
+        exactMatch.alternativeIds = alternativeIds;
+        finalTracksMap.set(exactMatch.id, exactMatch);
+
+        // Save validation entry as "auto_merged" to notify admin
+        const pendingRef = db.collection("pending_validations").doc(trackId);
+        pendingWrites.push(
+          pendingRef.set({
             trackId,
             trackName: track.title,
-            suggestedSongId: titleMatch?.id || null,
-            suggestedSongTitle: titleMatch?.title || null,
+            suggestedSongId: exactMatch.id,
+            suggestedSongTitle: exactMatch.title,
             coverUrl: track.coverUrl || "/petal.jpg",
             streams: 0,
-            status: titleMatch ? "pending_merge" : "pending_new",
+            status: "auto_merged",
             source: "album_import",
             date: now.split("T")[0],
             updatedAt: now
-          },
-          { merge: true }
-        )
-      );
+          }, { merge: true })
+        );
+      } else {
+        // Keep the track as a separate item
+        // But check if there is a clean title match (reconciliation recommendation)
+        const cleanMatch = Array.from(finalTracksMap.values()).find((et) =>
+          cleanTrackTitle(et.title) === cleanTrackTitle(track.title)
+        );
+
+        finalTracksMap.set(track.id, track);
+
+        const pendingRef = db.collection("pending_validations").doc(trackId);
+        pendingWrites.push(
+          pendingRef.set({
+            trackId,
+            trackName: track.title,
+            suggestedSongId: cleanMatch?.id || null,
+            suggestedSongTitle: cleanMatch?.title || null,
+            coverUrl: track.coverUrl || "/petal.jpg",
+            streams: 0,
+            status: cleanMatch ? "pending_merge" : "pending_new",
+            source: "album_import",
+            date: now.split("T")[0],
+            updatedAt: now
+          }, { merge: true })
+        );
+      }
     }
+
+    const finalTracks = Array.from(finalTracksMap.values());
+
+    await catalogRef.set({
+      tracks: finalTracks,
+      albums,
+      updatedAt: new Date().toISOString()
+    });
 
     await Promise.all(pendingWrites);
 
     return NextResponse.json({
       success: true,
-      message: `Saved ${tracks.length} tracks and ${albums.length} albums`
+      message: `Saved ${finalTracks.length} tracks and ${albums.length} albums`
     });
   } catch (error: any) {
     console.error("Error saving catalog:", error);

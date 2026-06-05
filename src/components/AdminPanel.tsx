@@ -56,7 +56,7 @@ interface PendingValidation {
   suggestedSongTitle: string | null;
   coverUrl: string;
   streams: number;
-  status: "pending_merge" | "pending_new";
+  status: "pending_merge" | "pending_new" | "auto_merged";
 }
 
 export default function AdminPanel() {
@@ -1605,62 +1605,86 @@ export default function AdminPanel() {
 
                   {/* Merge recommendation or selectors */}
                   <div className="flex flex-col sm:flex-row gap-3 items-end sm:items-center w-full lg:w-auto">
-                    <div className="w-full sm:w-60 relative">
-                      <select
-                        value={selectedMergeTarget[item.trackId] !== undefined ? selectedMergeTarget[item.trackId] : (item.suggestedSongId || "")}
-                        onChange={(e) => setSelectedMergeTarget(prev => ({ ...prev, [item.trackId]: e.target.value }))}
-                        className={`w-full bg-neutral-950 border rounded p-2 text-xs text-white focus:outline-none ${item.suggestedSongId ? "border-amber-500/40 focus:border-amber-500" : "border-neutral-900"
-                          }`}
-                      >
-                        <option value="">{language === "pt" ? "-- mesclar com... --" : "-- merge target --"}</option>
-                        {tracks.map(t => (
-                          <option key={t.id} value={t.id}>{t.title}</option>
-                        ))}
-                      </select>
-                      {item.suggestedSongId && (
-                        <span className="absolute -top-2.5 right-2 bg-amber-500 text-neutral-950 text-[8px] font-extrabold px-1 py-0.5 rounded uppercase tracking-wider font-mono scale-90">
-                          {language === "pt" ? "sugestão" : "suggested"}
+                    {item.status === "auto_merged" ? (
+                      <div className="w-full sm:w-80 text-emerald-450 font-bold flex items-center gap-1.5 bg-emerald-950/20 border border-emerald-900/30 p-2.5 rounded">
+                        <Check className="w-4 h-4 text-emerald-450 shrink-0" />
+                        <span>
+                          {language === "pt"
+                            ? `Mesclado automaticamente com: "${item.suggestedSongTitle}"`
+                            : `Automatically merged with: "${item.suggestedSongTitle}"`}
                         </span>
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="w-full sm:w-60 relative">
+                        <select
+                          value={selectedMergeTarget[item.trackId] !== undefined ? selectedMergeTarget[item.trackId] : (item.suggestedSongId || "")}
+                          onChange={(e) => setSelectedMergeTarget(prev => ({ ...prev, [item.trackId]: e.target.value }))}
+                          className={`w-full bg-neutral-950 border rounded p-2 text-xs text-white focus:outline-none ${item.suggestedSongId ? "border-amber-500/40 focus:border-amber-500" : "border-neutral-900"
+                            }`}
+                        >
+                          <option value="">{language === "pt" ? "-- mesclar com... --" : "-- merge target --"}</option>
+                          {tracks.map(t => (
+                            <option key={t.id} value={t.id}>{t.title}</option>
+                          ))}
+                        </select>
+                        {item.suggestedSongId && (
+                          <span className="absolute -top-2.5 right-2 bg-amber-500 text-neutral-950 text-[8px] font-extrabold px-1 py-0.5 rounded uppercase tracking-wider font-mono scale-90">
+                            {language === "pt" ? "sugestão" : "suggested"}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     {/* Action buttons */}
                     <div className="flex gap-2 w-full sm:w-auto justify-end">
-                      <button
-                        onClick={() => {
-                          const target = selectedMergeTarget[item.trackId] !== undefined
-                            ? selectedMergeTarget[item.trackId]
-                            : (item.suggestedSongId || "");
-                          if (!target) {
-                            showStatus(language === "pt" ? "selecione a música principal de destino." : "please select a target focus song to merge.");
-                            return;
-                          }
-                          handleResolveValidation(item.trackId, "merge", target);
-                        }}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded cursor-pointer"
-                        title={language === "pt" ? "Mesclar e agrupar plays" : "Merge / Link ID"}
-                      >
-                        <ArrowRightLeft className="w-3.5 h-3.5" />
-                        {language === "pt" ? "Mesclar" : "Merge"}
-                      </button>
+                      {item.status === "auto_merged" ? (
+                        <button
+                          onClick={() => handleResolveValidation(item.trackId, "reject")}
+                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded cursor-pointer font-bold"
+                          title={language === "pt" ? "Confirmar e arquivar aviso" : "Confirm and dismiss"}
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          {language === "pt" ? "Entendido" : "Dismiss"}
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => {
+                              const target = selectedMergeTarget[item.trackId] !== undefined
+                                ? selectedMergeTarget[item.trackId]
+                                : (item.suggestedSongId || "");
+                              if (!target) {
+                                showStatus(language === "pt" ? "selecione a música principal de destino." : "please select a target focus song to merge.");
+                                return;
+                              }
+                              handleResolveValidation(item.trackId, "merge", target);
+                            }}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded cursor-pointer"
+                            title={language === "pt" ? "Mesclar e agrupar plays" : "Merge / Link ID"}
+                          >
+                            <ArrowRightLeft className="w-3.5 h-3.5" />
+                            {language === "pt" ? "Mesclar" : "Merge"}
+                          </button>
 
-                      <button
-                        onClick={() => handleResolveValidation(item.trackId, "create")}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700 rounded cursor-pointer"
-                        title={language === "pt" ? "Adicionar como faixa foco independente" : "Approve as focus track"}
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        {language === "pt" ? "Criar foco" : "Create"}
-                      </button>
+                          <button
+                            onClick={() => handleResolveValidation(item.trackId, "create")}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700 rounded cursor-pointer"
+                            title={language === "pt" ? "Adicionar como faixa foco independente" : "Approve as focus track"}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            {language === "pt" ? "Criar foco" : "Create"}
+                          </button>
 
-                      <button
-                        onClick={() => handleResolveValidation(item.trackId, "reject")}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-red-950/40 hover:bg-red-950/80 text-red-200 border border-red-900 rounded cursor-pointer"
-                        title={language === "pt" ? "Rejeitar e apagar streams" : "Reject Streams"}
-                      >
-                        <X className="w-3.5 h-3.5" />
-                        {language === "pt" ? "Rejeitar" : "Reject"}
-                      </button>
+                          <button
+                            onClick={() => handleResolveValidation(item.trackId, "reject")}
+                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-red-950/40 hover:bg-red-950/80 text-red-200 border border-red-900 rounded cursor-pointer"
+                            title={language === "pt" ? "Rejeitar e apagar streams" : "Reject Streams"}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            {language === "pt" ? "Rejeitar" : "Reject"}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

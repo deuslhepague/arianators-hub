@@ -133,7 +133,7 @@ export async function GET(req: Request) {
     if (view === "pending") {
       return NextResponse.json({
         success: true,
-        requests: pendingDocs.filter((item) => item.status === "pending_merge" || item.status === "pending_new")
+        requests: pendingDocs.filter((item) => item.status === "pending_merge" || item.status === "pending_new" || item.status === "auto_merged")
       });
     }
 
