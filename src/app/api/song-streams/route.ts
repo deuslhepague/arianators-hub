@@ -323,16 +323,46 @@ export async function PATCH(req: Request) {
       const targetIndex = catalogTracks.findIndex((song: any) => song.id === targetSongId);
       if (targetIndex !== -1) {
         const targetSong = catalogTracks[targetIndex];
+        const targetKey = targetSong.spotifyTrackId || targetSong.id;
+
         const alternativeIds = Array.isArray(targetSong.alternativeIds) ? [...targetSong.alternativeIds] : [];
         if (!alternativeIds.includes(trackId)) {
           alternativeIds.push(trackId);
         }
         catalogTracks[targetIndex] = { ...targetSong, alternativeIds };
 
-        const pendingCount = songStreams[trackId] || pending.streams || 0;
-        if (pendingCount > 0 && trackId !== targetSongId) {
-          songStreams[targetSongId] = (songStreams[targetSongId] || 0) + pendingCount;
+        // 1. Update today's in-memory songStreams to merge trackId into targetKey
+        if (trackId !== targetKey) {
+          const todayCount = Number(songStreams[trackId] || pending.streams || 0);
+          if (todayCount > 0) {
+            songStreams[targetKey] = (songStreams[targetKey] || 0) + todayCount;
+          }
           delete songStreams[trackId];
+        }
+
+        // 2. Query all documents in the song_streams collection to perform historical merges
+        const songStreamsSnap = await db.collection("song_streams").get();
+        const batch = db.batch();
+        let hasBatchOps = false;
+
+        songStreamsSnap.forEach((doc) => {
+          if (doc.id === dateStr) return; // Skip today's document as it will be saved by saveSongStreamDoc below
+
+          const docData = doc.data() || {};
+          const tracksMap = docData.tracks || {};
+          if (tracksMap[trackId] !== undefined) {
+            const count = Number(tracksMap[trackId]) || 0;
+            if (count > 0 && trackId !== targetKey) {
+              tracksMap[targetKey] = (tracksMap[targetKey] || 0) + count;
+            }
+            delete tracksMap[trackId];
+            batch.set(doc.ref, { tracks: tracksMap }, { merge: true });
+            hasBatchOps = true;
+          }
+        });
+
+        if (hasBatchOps) {
+          await batch.commit();
         }
       }
     } else if (action === "create") {

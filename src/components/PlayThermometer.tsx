@@ -62,21 +62,84 @@ export default function PlayThermometer() {
     void loadCatalog();
   }, []);
 
+  const cleanTrackTitle = (title: string): string => {
+    return title
+      .toLowerCase()
+      .replace(/\(.*?\)/g, "")
+      .replace(/\[.*?\]/g, "")
+      .replace(/\s*-\s*(sped up|slowed|acapella|instrumental|remix|acoustic|radio edit|edit|live|version).*/i, "")
+      .trim();
+  };
+
   const getLocalizedVersion = (trackId: string, focusIndex?: number) => {
-    const matchedTrack = catalogTracks.find((t: any) =>
+    // 1. Try to find matching catalog track directly
+    let matchedTrack = catalogTracks.find((t: any) =>
       t.spotifyTrackId === trackId || (t.alternativeIds || []).includes(trackId)
     );
 
+    // 2. Try to find matching catalog track by title from stored metadata
+    if (!matchedTrack && typeof window !== "undefined") {
+      const storedMetaStr = localStorage.getItem("arianator_track_metadata");
+      if (storedMetaStr) {
+        try {
+          const storedMeta = JSON.parse(storedMetaStr);
+          if (storedMeta[trackId] && storedMeta[trackId].name) {
+            const trackName = storedMeta[trackId].name;
+            matchedTrack = catalogTracks.find((t: any) =>
+              cleanTrackTitle(t.title) === cleanTrackTitle(trackName)
+            );
+          }
+        } catch (_) {}
+      }
+    }
+
     if (matchedTrack) {
       const isMain = matchedTrack.spotifyTrackId === trackId;
+      if (isMain) {
+        return {
+          name: matchedTrack.title,
+          desc: `ID: ${trackId}`,
+          coverUrl: matchedTrack.coverUrl || "/petal.jpg"
+        };
+      }
+      
+      // Determine version number dynamically
+      const trackIdsInFocus = focusTracks.map(extractTrackId);
+      const songFocusTrackIds = trackIdsInFocus.filter(id => 
+        id === matchedTrack.spotifyTrackId || (matchedTrack.alternativeIds || []).includes(id)
+      );
+      
+      const indexInFocus = songFocusTrackIds.indexOf(trackId);
+      let versionNum = indexInFocus !== -1 ? indexInFocus + 1 : (matchedTrack.alternativeIds || []).indexOf(trackId) + 2;
+      if (versionNum <= 1) {
+        versionNum = 2;
+      }
+      
       return {
-        name: isMain ? matchedTrack.title : `${matchedTrack.title} (Version ${focusIndex !== undefined ? focusIndex + 1 : 1})`,
+        name: `${matchedTrack.title} (Version ${versionNum})`,
         desc: `ID: ${trackId}`,
         coverUrl: matchedTrack.coverUrl || "/petal.jpg"
       };
     }
 
-    // Check if we have cached metadata from recent plays
+    // 3. Fallback to default focus tracks exact naming
+    const defaultLabels: Record<string, { name: string; coverUrl?: string }> = {
+      "20jbSiX29FDX4oQxBXyUEi": { name: "we can't be friends (wait for your love)", coverUrl: "/petal.jpg" },
+      "3iy2QuCtCzpWnR6tia39AB": { name: "hate that i made you love me", coverUrl: "/petal.jpg" },
+      "3sLsICFrhFhXZlRFb3f2jB": { name: "hate that i made you love me (Version 2)", coverUrl: "/petal.jpg" },
+      "3idrvUQYONMAJ6EgZZqiL8": { name: "hate that i made you love me (Version 3)", coverUrl: "/petal.jpg" },
+      "6flVfBnGgTLZBT1hAt1XfJ": { name: "we can't be friends (wait for your love) (Version 2)", coverUrl: "/petal.jpg" }
+    };
+
+    if (defaultLabels[trackId]) {
+      return {
+        name: defaultLabels[trackId].name,
+        desc: `ID: ${trackId}`,
+        coverUrl: defaultLabels[trackId].coverUrl || "/petal.jpg"
+      };
+    }
+
+    // 4. Try recent plays metadata as a last resort
     if (typeof window !== "undefined") {
       const storedMetaStr = localStorage.getItem("arianator_track_metadata");
       if (storedMetaStr) {
@@ -89,30 +152,8 @@ export default function PlayThermometer() {
               coverUrl: storedMeta[trackId].coverUrl || "/petal.jpg"
             };
           }
-        } catch (_) { }
+        } catch (_) {}
       }
-    }
-
-    if (focusIndex !== undefined) {
-      const labels = [
-        { name: "we can't be friends (eternal sunshine)", desc: "eternal sunshine standard album" },
-        { name: "we can't be friends (eternal sunshine - slightly deluxe)", desc: "slightly deluxe album release" },
-        { name: "we can't be friends (eternal sunshine - signature edition)", desc: "signature vinyl/cd edition" },
-        { name: "we can't be friends (wait for your love - single bundle)", desc: "individual single bundle release" },
-        { name: "we can't be friends (wait for your love - compilation)", desc: "compilation track release" }
-      ];
-      if (labels[focusIndex]) {
-        return {
-          name: labels[focusIndex].name,
-          desc: `ID: ${trackId}`,
-          coverUrl: "/petal.jpg"
-        };
-      }
-      return {
-        name: language === "pt" ? `faixa foco (versão ${focusIndex + 1})` : `focus track (version ${focusIndex + 1})`,
-        desc: `ID: ${trackId}`,
-        coverUrl: "/petal.jpg"
-      };
     }
 
     return {
