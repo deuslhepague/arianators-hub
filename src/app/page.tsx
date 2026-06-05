@@ -317,6 +317,7 @@ export default function Home() {
   const [streamTab, setStreamTab] = useState<StreamTab>("tracks");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortBy>("daily");
+  const [albumSortBy, setAlbumSortBy] = useState<"daily" | "total" | "year">("total");
 
   // Selected Track for Milestones Modal
   const [selectedTrack, setSelectedTrack] = useState<TrackStat | null>(null);
@@ -352,9 +353,19 @@ export default function Home() {
       const q = searchQuery.toLowerCase();
       result = result.filter((a) => a.title.toLowerCase().includes(q));
     }
-    result.sort((a, b) => b.totalStreams - a.totalStreams);
+    result.sort((a, b) => {
+      if (albumSortBy === "daily") {
+        return b.dailyGain - a.dailyGain;
+      } else if (albumSortBy === "year") {
+        const yearA = parseInt(a.year, 10) || 0;
+        const yearB = parseInt(b.year, 10) || 0;
+        return yearB - yearA; // Newest first
+      } else {
+        return b.totalStreams - a.totalStreams;
+      }
+    });
     return result;
-  }, [albums, searchQuery]);
+  }, [albums, searchQuery, albumSortBy]);
 
   const getMilestoneDate = (days: number) => {
     const date = new Date();
@@ -515,8 +526,8 @@ export default function Home() {
                 <Info className={`w-4 h-4 flex-shrink-0 mt-0.5 ${theme === "light" ? "text-black" : "text-white"}`} />
                 <div>
                   {language === "pt"
-                    ? "clique em qualquer música para ver o histórico detalhado de streams, metas e estimativas de conclusão."
-                    : "click on any track to view detailed stream history, milestone progress, and target completion dates."}
+                    ? "clique em qualquer música para ver as metas e estimativas de conclusão."
+                    : "click on any track to view milestone progress and target completion dates."}
                 </div>
               </div>
 
@@ -564,6 +575,41 @@ export default function Home() {
                           }`}
                       >
                         {language === "pt" ? "streams totais" : "total streams"}
+                      </button>
+                    </div>
+                  )}
+
+                  {streamTab === "albums" && (
+                    <div className="flex items-center gap-2 mt-3">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${theme === "light" ? "text-neutral-500" : "text-neutral-500"}`}>
+                        {language === "pt" ? "ordenar por:" : "sort by:"}
+                      </span>
+                      <button
+                        onClick={() => setAlbumSortBy("total")}
+                        className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${albumSortBy === "total"
+                            ? (theme === "light" ? "bg-black border-black text-white" : "bg-white border-white text-black")
+                            : (theme === "light" ? "border-neutral-300 text-neutral-500 hover:text-black" : "border-neutral-900 text-neutral-400 hover:text-white")
+                          }`}
+                      >
+                        {language === "pt" ? "streams totais" : "total streams"}
+                      </button>
+                      <button
+                        onClick={() => setAlbumSortBy("daily")}
+                        className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${albumSortBy === "daily"
+                            ? (theme === "light" ? "bg-black border-black text-white" : "bg-white border-white text-black")
+                            : (theme === "light" ? "border-neutral-300 text-neutral-500 hover:text-black" : "border-neutral-900 text-neutral-400 hover:text-white")
+                          }`}
+                      >
+                        {language === "pt" ? "ganho diário" : "daily gain"}
+                      </button>
+                      <button
+                        onClick={() => setAlbumSortBy("year")}
+                        className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${albumSortBy === "year"
+                            ? (theme === "light" ? "bg-black border-black text-white" : "bg-white border-white text-black")
+                            : (theme === "light" ? "border-neutral-300 text-neutral-500 hover:text-black" : "border-neutral-900 text-neutral-400 hover:text-white")
+                          }`}
+                      >
+                        {language === "pt" ? "ano de lançamento" : "release year"}
                       </button>
                     </div>
                   )}
