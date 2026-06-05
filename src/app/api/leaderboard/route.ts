@@ -47,9 +47,8 @@ export async function GET(req: Request) {
     const bypassCache = url.searchParams.get("bypass") === "true";
     const now = Date.now();
 
-    const isToday = dateStr === getTodayDateStr();
-    // Cache duration: 2 minutes for today, 1 hour for past dates
-    const cacheDuration = isToday ? 120000 : 3600000;
+    // Cache duration: 1 minute for all dates
+    const cacheDuration = 60000;
 
     if (!bypassCache && cachedLeaderboards[dateStr] && (now - cachedLeaderboards[dateStr].timestamp) < cacheDuration) {
       return NextResponse.json({

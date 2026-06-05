@@ -117,8 +117,8 @@ export async function GET(req: Request) {
     }
 
     const now = Date.now();
-    const isToday = dateStr === getTodayDateStr();
-    const cacheDuration = isToday ? 120000 : 3600000;
+    // Cache duration: 1 minute for all dates
+    const cacheDuration = 60000;
 
     if (view === "songs" && !bypassCache && cachedSongLeaderboards[dateStr] && (now - cachedSongLeaderboards[dateStr].timestamp) < cacheDuration) {
       return NextResponse.json(cachedSongLeaderboards[dateStr].data);
