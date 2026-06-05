@@ -58,11 +58,15 @@ export function addStreamHistoryEntry(
     dailyStreams = totalStreams - previousTotalStreams;
   }
 
+  if (dailyStreams <= 0) {
+    return currentHistory || {};
+  }
+
   return {
     ...currentHistory,
     [dateStr]: {
       total: totalStreams,
-      daily: dailyStreams > 0 ? dailyStreams : null
+      daily: dailyStreams
     }
   };
 }

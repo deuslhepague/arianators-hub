@@ -16,6 +16,17 @@ interface TrackData {
   streams?: StreamHistory;
 }
 
+interface AlbumData {
+  id: string;
+  title: string;
+  year: string;
+  totalStreams: number;
+  dailyGain: number;
+  spotifyAlbumId?: string;
+  isParticipation?: boolean;
+  streams?: StreamHistory;
+}
+
 // Inicializar Firebase Admin SDK com credenciais do arquivo JSON local
 function getAdminApp() {
   if (admin.apps.length > 0) {
@@ -66,7 +77,7 @@ export async function POST(req: Request) {
 
     // Load catalog directly from Firestore
     let tracks: TrackData[] = [];
-    let albums: any[] = [];
+    let albums: AlbumData[] = [];
     try {
       const catalogSnap = await db.collection("catalog").doc("config").get();
       if (catalogSnap.exists) {
@@ -82,10 +93,10 @@ export async function POST(req: Request) {
       );
     }
 
-    if (tracks.length === 0) {
+    if (tracks.length === 0 && albums.length === 0) {
       return NextResponse.json({
         success: true,
-        message: "No tracks to update",
+        message: "No tracks or albums to update",
         updatedCount: 0,
         timestamp: new Date().toISOString()
       });
@@ -96,6 +107,7 @@ export async function POST(req: Request) {
     
     // Track updates
     const updates: any[] = [];
+    const albumUpdates: any[] = [];
     const errors: any[] = [];
     let previousDayData: any = null;
 
@@ -113,12 +125,15 @@ export async function POST(req: Request) {
       console.warn("Could not load yesterday's data from Firestore");
     }
 
-    // Update each track's playcount from Spotify
-    for (const track of tracks) {
-      if (!track.spotifyTrackId) continue;
+    // Map to cache track playcounts returned from album fetches
+    const trackPlaycounts: Record<string, number> = {};
+
+    // 1. Update all albums first
+    for (const album of albums) {
+      const albumId = album.spotifyAlbumId || album.id;
+      if (!albumId || albumId.length !== 22) continue;
 
       try {
-        // Fetch track data from Spotify Pathfinder
         const pathfinderUrl = "https://api-partner.spotify.com/pathfinder/v2/query";
         const pathfinderRes = await fetchSpotify(pathfinderUrl, {
           method: "POST",
@@ -130,40 +145,156 @@ export async function POST(req: Request) {
             "content-type": "application/json;charset=UTF-8",
           },
           body: JSON.stringify({
-            variables: { uri: `spotify:track:${track.spotifyTrackId}` },
-            operationName: "getTrack",
+            variables: {
+              uri: `spotify:album:${albumId}`,
+              locale: "intl-pt",
+              offset: 0,
+              limit: 50
+            },
+            operationName: "getAlbum",
             extensions: {
               persistedQuery: {
                 version: 1,
-                sha256Hash: "612585ae06ba435ad26369870deaae23b5c8800a256cd8a57e08eddc25a37294"
+                sha256Hash: "b9bfabef66ed756e5e13f68a942deb60bd4125ec1f1be8cc42769dc0259b4b10"
               }
             }
           })
         });
 
-        if (!pathfinderRes.ok) {
+        if (pathfinderRes.ok) {
+          const data = await pathfinderRes.json();
+          const items = data?.data?.albumUnion?.tracksV2?.items || [];
+          let albumSum = 0;
+          const albumIsParticipation = album.isParticipation || false;
+
+          items.forEach((item: any) => {
+            const track = item?.track;
+            if (track) {
+              const uri = track.uri || "";
+              const id = uri.split(":track:")[1] || uri;
+              const playcountStr = track.playcount || "0";
+              const playcount = parseInt(playcountStr, 10) || 0;
+
+              // Check if Ariana Grande participates in this track
+              const artistsItems = track.artists?.items || [];
+              const isArianaTrack = artistsItems.some((a: any) => 
+                a.profile?.name?.toLowerCase().includes("ariana grande")
+              );
+
+              if (id) {
+                trackPlaycounts[id] = playcount;
+                if (!albumIsParticipation || isArianaTrack) {
+                  albumSum += playcount;
+                }
+              }
+            }
+          });
+
+          if (albumSum > 0) {
+            const oldPlaycount = album.totalStreams || 0;
+            
+            // Calculate daily gain based on yesterday's final total count
+            const yesterdayData = previousDayData?.albums?.[album.id];
+            const yesterdayTotal = yesterdayData?.totalStreams || 0;
+
+            const dailyGain = yesterdayData !== undefined
+              ? Math.max(0, albumSum - yesterdayTotal)
+              : Math.max(0, albumSum - oldPlaycount);
+
+            albumUpdates.push({
+              id: album.id,
+              title: album.title,
+              oldPlaycount,
+              newPlaycount: albumSum,
+              dailyGain,
+              timestamp: new Date().toISOString()
+            });
+
+            album.totalStreams = albumSum;
+            album.dailyGain = dailyGain;
+
+            // Add stream history entry for today
+            const today = getTodayDateStr();
+            album.streams = addStreamHistoryEntry(
+              album.streams,
+              today,
+              albumSum,
+              yesterdayTotal || oldPlaycount
+            );
+          }
+        } else {
           errors.push({
-            trackId: track.id,
+            albumId: album.id,
             error: `Spotify API error: ${pathfinderRes.status}`
           });
-          continue;
         }
+      } catch (err: any) {
+        errors.push({
+          albumId: album.id,
+          error: err.message || "Unknown error"
+        });
+      }
+    }
 
-        const data = await pathfinderRes.json();
-        const trackUnion = data?.data?.trackUnion;
-        
-        if (!trackUnion) {
-          errors.push({
-            trackId: track.id,
-            error: "No track data returned from Spotify"
+    // 2. Update each track's playcount
+    for (const track of tracks) {
+      if (!track.spotifyTrackId) continue;
+
+      try {
+        let newPlaycount = 0;
+
+        // Check if we already fetched this track's playcount during album updates
+        if (trackPlaycounts[track.spotifyTrackId]) {
+          newPlaycount = trackPlaycounts[track.spotifyTrackId];
+        } else {
+          // Fetch track data individually from Spotify Pathfinder
+          const pathfinderUrl = "https://api-partner.spotify.com/pathfinder/v2/query";
+          const pathfinderRes = await fetchSpotify(pathfinderUrl, {
+            method: "POST",
+            headers: {
+              "accept": "application/json",
+              "accept-language": "pt-BR",
+              "app-platform": "WebPlayer",
+              "authorization": `Bearer ${token}`,
+              "content-type": "application/json;charset=UTF-8",
+            },
+            body: JSON.stringify({
+              variables: { uri: `spotify:track:${track.spotifyTrackId}` },
+              operationName: "getTrack",
+              extensions: {
+                persistedQuery: {
+                  version: 1,
+                  sha256Hash: "612585ae06ba435ad26369870deaae23b5c8800a256cd8a57e08eddc25a37294"
+                }
+              }
+            })
           });
-          continue;
+
+          if (!pathfinderRes.ok) {
+            errors.push({
+              trackId: track.id,
+              error: `Spotify API error: ${pathfinderRes.status}`
+            });
+            continue;
+          }
+
+          const data = await pathfinderRes.json();
+          const trackUnion = data?.data?.trackUnion;
+          
+          if (!trackUnion) {
+            errors.push({
+              trackId: track.id,
+              error: "No track data returned from Spotify"
+            });
+            continue;
+          }
+
+          newPlaycount = parseInt(trackUnion.playcount || "0", 10) || 0;
         }
 
-        const newPlaycount = parseInt(trackUnion.playcount || "0", 10) || 0;
         const oldPlaycount = track.totalStreams || 0;
 
-        // Calculate daily gain based on yesterday's final total count (to support multiple runs a day)
+        // Calculate daily gain based on yesterday's final total count
         const yesterdayData = previousDayData?.tracks?.[track.id];
         const yesterdayTotal = yesterdayData?.totalStreams || 0;
         const yesterdayDailyGain = yesterdayData?.dailyGain || 0;
@@ -222,7 +353,8 @@ export async function POST(req: Request) {
       const today = new Date().toISOString().split('T')[0];
       const historicalSnapshot: any = {
         date: today,
-        tracks: {}
+        tracks: {},
+        albums: {}
       };
       
       for (const track of tracks) {
@@ -232,10 +364,18 @@ export async function POST(req: Request) {
           gainDiff: track.gainDiff
         };
       }
+
+      for (const album of albums) {
+        historicalSnapshot.albums[album.id] = {
+          totalStreams: album.totalStreams,
+          dailyGain: album.dailyGain
+        };
+      }
       
       await db.collection("historical").doc(today).set({
         date: today,
         tracks: historicalSnapshot.tracks,
+        albums: historicalSnapshot.albums,
         savedAt: new Date().toISOString()
       });
 
@@ -256,13 +396,15 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Updated ${updates.length} tracks`,
-      updatedCount: updates.length,
+      message: `Updated ${updates.length} tracks and ${albumUpdates.length} albums`,
+      updatedTracksCount: updates.length,
+      updatedAlbumsCount: albumUpdates.length,
       errorCount: errors.length,
       updates: updates.slice(0, 10), // Return first 10 for brevity
+      albumUpdates: albumUpdates.slice(0, 10),
       errors: errors.slice(0, 10),
       timestamp: new Date().toISOString(),
-      note: errors.length > 0 ? "Some tracks failed to update" : "All tracks updated successfully"
+      note: errors.length > 0 ? "Some entities failed to update" : "All entities updated successfully"
     });
 
   } catch (err: any) {
