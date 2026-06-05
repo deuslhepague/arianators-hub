@@ -1,0 +1,29 @@
+name: Daily Playcount Update
+
+on:
+  schedule:
+    # Executa 00:00 GMT (0h) todo dia
+    - cron: '0 0 * * *'
+  # Permite trigger manual no GitHub
+  workflow_dispatch:
+
+jobs:
+  update-tracks:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Trigger daily playcount update
+        run: |
+          curl -X POST \
+            -H "x-admin-passcode: ${{ secrets.ADMIN_PASSCODE }}" \
+            -H "Content-Type: application/json" \
+            "${{ secrets.APP_URL }}/api/scheduled-update" \
+            -d '{"message":"automatic daily update"}'
+        
+      - name: Wait a moment
+        run: sleep 5
+        
+      - name: Check if update succeeded
+        run: |
+          echo "✅ Update request sent successfully!"
+          echo "Check your app logs for details"
