@@ -29,18 +29,16 @@ function getAdminApp() {
 
 let cachedCatalog: any = null;
 let cachedTimestamp = 0;
+const CACHE_TTL = 300_000; // 5 minutes
 
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
-    const bypassCache = url.searchParams.get("bypass") === "true";
+    const bypass = url.searchParams.get("bypass") === "true";
     const now = Date.now();
 
-    if (!bypassCache && cachedCatalog && (now - cachedTimestamp) < 300000) {
-      return NextResponse.json({
-        success: true,
-        ...cachedCatalog
-      });
+    if (!bypass && cachedCatalog && (now - cachedTimestamp) < CACHE_TTL) {
+      return NextResponse.json({ success: true, ...cachedCatalog });
     }
 
     const app = getAdminApp();
@@ -48,10 +46,7 @@ export async function GET(req: Request) {
     const snap = await db.collection("catalog").doc("config").get();
 
     if (!snap.exists) {
-      const empty = { tracks: [], albums: [], updatedAt: null };
-      cachedCatalog = empty;
-      cachedTimestamp = now;
-      return NextResponse.json({ success: true, ...empty });
+      return NextResponse.json({ success: true, tracks: [], albums: [], updatedAt: null });
     }
 
     const data = snap.data();
@@ -64,10 +59,7 @@ export async function GET(req: Request) {
     cachedCatalog = payload;
     cachedTimestamp = now;
 
-    return NextResponse.json({
-      success: true,
-      ...payload
-    });
+    return NextResponse.json({ success: true, ...payload });
   } catch (error: any) {
     console.error("Error loading public catalog:", error);
     return NextResponse.json(

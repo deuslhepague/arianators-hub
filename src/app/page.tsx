@@ -38,7 +38,8 @@ import {
   Radio,
   X,
   Compass,
-  Settings
+  Settings,
+  RefreshCw
 } from "lucide-react";
 
 // Mock data based on real Spotify stream counts for Ariana Grande's Eternal Sunshine era
@@ -269,7 +270,7 @@ const getTrackGainDisplay = (track: TrackStat, language: string) => {
 };
 
 export default function Home() {
-  const { user, login, logout, isLoading: isAuthLoading } = useSpotify();
+  const { user, login, logout, isLoading: isAuthLoading, isAdmin } = useSpotify();
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
 
@@ -279,30 +280,31 @@ export default function Home() {
   // Dynamic tracks/albums state
   const [tracks, setTracks] = useState<TrackStat[]>([]);
   const [albums, setAlbums] = useState<AlbumStat[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   const loadAdminConfig = React.useCallback(async (bypass = false) => {
     try {
-      const url = bypass ? "/api/catalog?bypass=true" : "/api/catalog";
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error("Failed to load catalog");
-      }
-
+      const response = await fetch("/api/catalog" + (bypass ? "?bypass=true" : ""));
+      if (!response.ok) throw new Error("Failed to load catalog");
       const data = await response.json();
       setTracks(data.tracks || []);
       setAlbums(data.albums || []);
+      setLastUpdated(data.updatedAt || new Date().toISOString());
     } catch (error) {
       console.error("Failed to load public catalog:", error);
-      setTracks([]);
-      setAlbums([]);
     }
   }, []);
 
+  const handleRefresh = React.useCallback(async () => {
+    setIsRefreshing(true);
+    await loadAdminConfig(true);
+    setIsRefreshing(false);
+  }, [loadAdminConfig]);
+
   React.useEffect(() => {
     void loadAdminConfig(false);
-    const refreshCatalog = () => {
-      void loadAdminConfig(true);
-    };
+    const refreshCatalog = () => { void loadAdminConfig(true); };
     window.addEventListener("storage_admin_update", refreshCatalog);
     return () => window.removeEventListener("storage_admin_update", refreshCatalog);
   }, [loadAdminConfig]);
@@ -521,9 +523,24 @@ export default function Home() {
               {/* Last Updated + Search Bar + Sort controls */}
               <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-6 border-b ${theme === "light" ? "border-neutral-200" : "border-neutral-900"}`}>
                 <div>
-                  <span className={`text-xs font-semibold uppercase tracking-wider ${theme === "light" ? "text-neutral-500" : "text-neutral-400"}`}>
-                    {language === "pt" ? "última atualização: 1 de junho de 2026" : "last updated: jun 1, 2026"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-semibold uppercase tracking-wider ${theme === "light" ? "text-neutral-500" : "text-neutral-400"}`}>
+                      {lastUpdated
+                        ? (language === "pt" ? "atualizado: " : "updated: ") + new Date(lastUpdated).toLocaleTimeString()
+                        : (language === "pt" ? "carregando..." : "loading...")}
+                    </span>
+                    {isAdmin && (
+                      <button
+                        id="streams-refresh-btn"
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                        title={language === "pt" ? "Recarregar dados" : "Refresh data"}
+                        className={`p-1.5 rounded border transition-all cursor-pointer disabled:opacity-40 ${theme === "light" ? "border-neutral-300 text-neutral-500 hover:border-black hover:text-black" : "border-neutral-800 text-neutral-500 hover:border-white hover:text-white"}`}
+                      >
+                        <RefreshCw className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`} />
+                      </button>
+                    )}
+                  </div>
 
                   {streamTab === "tracks" && (
                     <div className="flex items-center gap-2 mt-3">

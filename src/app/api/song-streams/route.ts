@@ -145,7 +145,7 @@ export async function GET(req: Request) {
       const mainId = song.id;
       const spotifyId = song.spotifyTrackId;
       const altIds = song.alternativeIds || [];
-      
+
       let codebaseStreams = Number(songStreams[mainId] || 0);
       if (spotifyId && spotifyId !== mainId) {
         codebaseStreams += Number(songStreams[spotifyId] || 0);
