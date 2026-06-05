@@ -3,6 +3,8 @@ import { getSpotifyToken, fetchSpotify } from "@/lib/spotify-token";
 import { addStreamHistoryEntry, getTodayDateStr, StreamHistory } from "@/lib/streamHistory";
 import { getMilestoneForStreams } from "@/lib/milestones";
 
+export const dynamic = "force-dynamic";
+
 interface TrackImportResult {
   id: string;
   title: string;

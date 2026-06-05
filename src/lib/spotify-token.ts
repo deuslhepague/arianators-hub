@@ -44,7 +44,7 @@ export async function getSpotifyToken(): Promise<string> {
 export async function fetchSpotify(url: string, init?: RequestInit): Promise<Response> {
   // Try direct fetch first
   try {
-    const res = await fetch(url, init);
+    const res = await fetch(url, { ...init, cache: "no-store" });
     if (res.status !== 429) {
       return res;
     }
@@ -65,7 +65,8 @@ export async function fetchSpotify(url: string, init?: RequestInit): Promise<Res
           "Content-Type": init?.headers ? (init.headers as any)["Content-Type"] || "application/json" : "application/json",
           "accept": "application/json",
           "app-platform": "WebPlayer"
-        }
+        },
+        cache: "no-store"
       };
       if (init?.body) {
         proxyInit.body = init.body;

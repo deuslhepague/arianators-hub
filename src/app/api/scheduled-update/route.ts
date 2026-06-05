@@ -5,6 +5,8 @@ import * as path from "path";
 import { getSpotifyToken, fetchSpotify } from "@/lib/spotify-token";
 import { addStreamHistoryEntry, getTodayDateStr, StreamHistory } from "@/lib/streamHistory";
 
+export const dynamic = "force-dynamic";
+
 interface TrackData {
   id: string;
   title: string;

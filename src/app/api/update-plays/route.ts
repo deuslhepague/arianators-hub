@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getSpotifyToken, fetchSpotify } from "@/lib/spotify-token";
 import { addStreamHistoryEntry, getTodayDateStr, StreamHistory } from "@/lib/streamHistory";
 
+export const dynamic = "force-dynamic";
+
 interface SpotifyTrackInput {
   id: string;
   title: string;
@@ -51,13 +53,36 @@ export async function POST(req: Request) {
     for (const track of tracksNeedAlbumResolve) {
       const trackId = track.spotifyTrackId!;
       try {
-        const trackDetailRes = await fetchSpotify(`https://api.spotify.com/v1/tracks/${trackId}`, {
-          headers: { "Authorization": `Bearer ${token}` }
+        const pathfinderUrl = "https://api-partner.spotify.com/pathfinder/v2/query";
+        const res = await fetchSpotify(pathfinderUrl, {
+          method: "POST",
+          headers: {
+            "accept": "application/json",
+            "accept-language": "pt-BR",
+            "app-platform": "WebPlayer",
+            "authorization": `Bearer ${token}`,
+            "content-type": "application/json;charset=UTF-8",
+            "origin": "https://open.spotify.com",
+            "referer": "https://open.spotify.com/",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36"
+          },
+          body: JSON.stringify({
+            variables: { uri: `spotify:track:${trackId}` },
+            operationName: "getTrack",
+            extensions: {
+              persistedQuery: {
+                version: 1,
+                sha256Hash: "612585ae06ba435ad26369870deaae23b5c8800a256cd8a57e08eddc25a37294"
+              }
+            }
+          })
         });
-        if (trackDetailRes.ok) {
-          const trackDetail = await trackDetailRes.json();
-          if (trackDetail.album && trackDetail.album.id) {
-            resolvedAlbumIdsMap[trackId] = trackDetail.album.id;
+
+        if (res.ok) {
+          const data = await res.json();
+          const trackUnion = data?.data?.trackUnion;
+          if (trackUnion?.albumOfTrack?.id) {
+            resolvedAlbumIdsMap[trackId] = trackUnion.albumOfTrack.id;
           }
         }
       } catch (err) {
