@@ -306,7 +306,6 @@ export async function PATCH(req: Request) {
 
     const app = getAdminApp();
     const db = admin.firestore(app);
-    const dateStr = getTodayDateStr();
     const pendingRef = db.collection("pending_validations").doc(trackId);
     const pendingSnap = await pendingRef.get();
 
@@ -315,6 +314,7 @@ export async function PATCH(req: Request) {
     }
 
     const pending = pendingSnap.data() || {};
+    const dateStr = pending.date || getTodayDateStr();
     const songStreamDoc = await loadSongStreamDoc(db, dateStr);
     const songStreams: Record<string, number> = songStreamDoc.tracks || {};
     const { tracks: catalogTracks } = await loadCatalog(db);
