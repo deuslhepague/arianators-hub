@@ -208,23 +208,27 @@ export async function POST(req: Request) {
         mainPlaycount = trackPlaycounts[track.spotifyTrackId];
       }
 
-      // Sum playcounts from alternative track IDs
-      let altPlaycountSum = 0;
+      // Get playcounts from alternative track IDs
+      let maxAltPlaycount = 0;
       if (track.alternativeIds) {
         track.alternativeIds.forEach(altId => {
-          if (trackPlaycounts[altId]) {
-            altPlaycountSum += trackPlaycounts[altId];
+          if (trackPlaycounts[altId] && trackPlaycounts[altId] > maxAltPlaycount) {
+            maxAltPlaycount = trackPlaycounts[altId];
           }
         });
       }
 
-      const totalNewStreams = mainPlaycount + altPlaycountSum;
+      const totalNewStreams = Math.max(mainPlaycount, maxAltPlaycount);
 
       if (totalNewStreams > 0) {
         const diff = totalNewStreams - track.totalStreams;
         if (diff > 0) {
           track.gainDiff = diff - track.dailyGain;
           track.dailyGain = diff;
+        } else if (diff < 0) {
+          // Self-healing: Spotify count is lower than DB count (due to a previous corruption/bug)
+          track.dailyGain = 0;
+          track.gainDiff = 0;
         }
         track.totalStreams = totalNewStreams;
         track.streams = addStreamHistoryEntry(

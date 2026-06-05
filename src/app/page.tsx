@@ -53,6 +53,9 @@ interface TrackStat {
   milestoneName: string;
   milestoneTarget: number;
   avgDailyGain: number;
+  alternativeIds?: string[];
+  spotifyTrackId?: string;
+  streams?: Record<string, { total: number; daily: number | null }>;
 }
 
 interface AlbumStat {
@@ -225,6 +228,45 @@ const DEFAULT_MOCK_ALBUMS: AlbumStat[] = [
 type ActiveView = "streams" | "thermometer" | "generator" | "leaderboard" | "guide" | "admin" | "remove-user";
 type StreamTab = "albums" | "tracks";
 type SortBy = "daily" | "total";
+
+const getTrackGainDisplay = (track: TrackStat, language: string) => {
+  const dates = Object.keys(track.streams || {}).sort();
+  if (dates.length < 2) {
+    return null;
+  }
+
+  const todayDate = dates[dates.length - 1];
+  const prevDate = dates[dates.length - 2];
+
+  const todayEntry = track.streams![todayDate];
+  const prevEntry = track.streams![prevDate];
+
+  if (!todayEntry || !prevEntry) {
+    return null;
+  }
+
+  const todayDaily = todayEntry.daily ?? 0;
+  const prevDaily = prevEntry.daily ?? 0;
+
+  // If the previous daily is equal to the total, it was the initial import and not a real daily gain,
+  // so we shouldn't compare to it.
+  if (prevDaily <= 0 || prevDaily === prevEntry.total) {
+    return null;
+  }
+
+  const diff = todayDaily - prevDaily;
+  const pct = (diff / prevDaily) * 100;
+
+  // Format percentage (e.g. 12.5% or 12,5% depending on language)
+  const pctStr = Math.abs(pct).toFixed(1).replace(".", language === "pt" ? "," : ".");
+
+  return {
+    isUp: diff > 0,
+    isDown: diff < 0,
+    pctStr,
+    diff
+  };
+};
 
 export default function Home() {
   const { user, login, logout, isLoading: isAuthLoading } = useSpotify();
@@ -571,9 +613,15 @@ export default function Home() {
                             <span className={`text-xs font-semibold ${theme === "light" ? "text-neutral-700" : "text-neutral-300"}`}>
                               +{formatNumber(track.dailyGain)}
                             </span>
-                            <span className={`text-[10px] font-semibold flex items-center ${track.gainDiff >= 0 ? (theme === "light" ? "text-neutral-600" : "text-neutral-300") : "text-red-400"}`}>
-                              {track.gainDiff >= 0 ? "▲" : "▼"} {formatNumber(Math.abs(track.gainDiff))}
-                            </span>
+                            {(() => {
+                              const gainDisplay = getTrackGainDisplay(track, language);
+                              if (!gainDisplay || gainDisplay.diff === 0) return null;
+                              return (
+                                <span className={`text-[10px] font-semibold flex items-center ${gainDisplay.isUp ? "text-green-500" : "text-red-400"}`}>
+                                  {gainDisplay.isUp ? "▲" : "▼"} {gainDisplay.pctStr}%
+                                </span>
+                              );
+                            })()}
                           </div>
                         </div>
                       </div>

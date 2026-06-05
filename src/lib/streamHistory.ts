@@ -33,33 +33,34 @@ export function addStreamHistoryEntry(
 
   // Calculate daily gain (new streams on this date)
   let dailyStreams = 0;
+  let prevDaily: number | null = null;
+  let isTotalEqual = false;
 
-  // If there's a previous entry, calculate based on difference
-  if (Object.keys(currentHistory).length > 0) {
-    const sortedDates = Object.keys(currentHistory).sort();
+  // Filter out the target date from currentHistory to find the actual previous entry
+  const sortedDates = Object.keys(currentHistory)
+    .filter(d => d !== dateStr)
+    .sort();
+
+  if (sortedDates.length > 0) {
     const lastDate = sortedDates[sortedDates.length - 1];
     const lastEntry = currentHistory[lastDate];
 
-    if (lastEntry && dateStr > lastDate) {
+    if (lastEntry) {
       dailyStreams = Math.max(0, totalStreams - lastEntry.total);
-    } else if (dateStr === lastDate) {
-      // Same day update - find the entry before this one to calculate daily gain
-      const secondToLastDate = sortedDates[sortedDates.length - 2];
-      const secondToLastEntry = secondToLastDate ? currentHistory[secondToLastDate] : null;
-      if (secondToLastEntry) {
-        dailyStreams = Math.max(0, totalStreams - secondToLastEntry.total);
-      } else {
-        // If there is no previous day, daily is totalStreams - initial previousTotalStreams
-        dailyStreams = Math.max(0, totalStreams - previousTotalStreams);
-      }
+      prevDaily = lastEntry.daily;
+      isTotalEqual = (totalStreams === lastEntry.total);
     }
   } else {
     // First entry
     dailyStreams = totalStreams - previousTotalStreams;
+    isTotalEqual = (totalStreams === previousTotalStreams);
   }
 
-  if (dailyStreams <= 0) {
-    return currentHistory || {};
+  // Rule: If total is equal, daily gain is <= 0, or daily gain is exactly equal to the previous day's daily gain, do not add/keep the entry.
+  if (isTotalEqual || dailyStreams <= 0 || (prevDaily !== null && dailyStreams === prevDaily)) {
+    const updatedHistory = { ...currentHistory };
+    delete updatedHistory[dateStr];
+    return updatedHistory;
   }
 
   return {
