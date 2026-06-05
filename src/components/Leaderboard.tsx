@@ -348,8 +348,8 @@ export default function Leaderboard() {
               <div className={`flex justify-between items-center text-[10px] font-mono uppercase tracking-wider px-1 pb-1 border-b ${border} ${textMuted}`}>
                 <span>{language === "pt" ? "música" : "song"}</span>
                 <div className="flex gap-4 text-right">
-                  <span>{language === "pt" ? "plays (ciclo)" : "plays (cycle)"}</span>
-                  <span className="w-20">{language === "pt" ? "não confirmados" : "unconfirmed"}</span>
+                  <span className="w-24">{language === "pt" ? "plays (ciclo)" : "plays (cycle)"}</span>
+                  <span className="w-24">{language === "pt" ? "não confirmados" : "unconfirmed"}</span>
                 </div>
               </div>
 
@@ -413,19 +413,27 @@ export default function Leaderboard() {
                     </div>
 
                     {/* Play counts */}
-                    <div className="text-right ml-3 flex-shrink-0">
-                      <span className={`font-serif text-sm md:text-base font-bold block ${textMain}`}>
-                        {formatNumber(item.fanbaseStreams)}
-                      </span>
-                      <div className={`text-[9px] font-mono mt-0.5 flex flex-col items-end gap-0.5`}>
+                    <div className="flex gap-4 text-right ml-3 flex-shrink-0">
+                      {/* Column 1: Plays (Cycle) */}
+                      <div className="w-24 flex flex-col items-end justify-center">
+                        <span className={`font-serif text-sm md:text-base font-bold block ${textMain}`}>
+                          {formatNumber(item.fanbaseStreams)}
+                        </span>
                         {item.fanbaseStreams > 0 && (
-                          <span className={`${textMuted}`}>
+                          <span className={`text-[9px] font-mono mt-0.5 block ${textMuted}`}>
                             ✓ {formatNumber(confirmedStreams >= 0 ? confirmedStreams : item.fanbaseStreams)}
                           </span>
                         )}
+                      </div>
+
+                      {/* Column 2: Unconfirmed */}
+                      <div className="w-24 flex flex-col items-end justify-center">
+                        <span className={`font-serif text-sm md:text-base font-bold block ${hasUnconfirmed ? (theme === "light" ? "text-orange-600" : "text-orange-400") : textMuted}`}>
+                          {hasUnconfirmed ? formatNumber(item.pendingStreams) : "-"}
+                        </span>
                         {hasUnconfirmed && (
-                          <span className={`font-bold ${theme === "light" ? "text-orange-600" : "text-orange-400"}`}>
-                            ⚠ {formatNumber(item.pendingStreams)}
+                          <span className={`text-[9px] font-mono mt-0.5 font-bold block ${theme === "light" ? "text-orange-600" : "text-orange-400"}`}>
+                            ⚠ {language === "pt" ? "pendente" : "pending"}
                           </span>
                         )}
                       </div>
