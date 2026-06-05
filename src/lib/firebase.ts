@@ -185,24 +185,19 @@ export const dbOperations = {
     await saveUserStreamToFirestore(userId, displayName, avatarUrl, trackId, count);
   },
 
-  async saveStatsFmProfile(profile: {
-    id: string;
-    display_name: string;
-    images: { url: string }[];
-    customId?: string;
-  }) {
-    if (!profile?.id) return;
-    await postJson("/api/statsfm-users", { profile });
+  async saveStatsFmProfile(profile: any) {
+    // Deprecated - handled by OAuth callback
+    return null;
   },
 
   async syncStatsFmUser(userId: string) {
     if (!userId) return null;
-    return postJson("/api/statsfm-sync", { userId });
+    return postJson("/api/spotify-sync", { userId });
   },
 
   async getUserDailyStreams(userId: string) {
     if (!userId) return {};
-    const response = await fetch(`/api/statsfm-users?userId=${encodeURIComponent(userId)}`);
+    const response = await fetch(`/api/spotify-users?userId=${encodeURIComponent(userId)}`);
     if (!response.ok) {
       throw new Error("Failed to load user daily streams");
     }

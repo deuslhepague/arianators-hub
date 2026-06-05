@@ -27,19 +27,13 @@ export default function PlayThermometer() {
   const { theme } = useTheme();
   const lt = theme === "light";
 
-  const [statsFmIdInput, setStatsFmIdInput] = React.useState("");
-  const [connecting, setConnecting] = React.useState(false);
   const [catalogTracks, setCatalogTracks] = React.useState<any[]>([]);
 
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!statsFmIdInput.trim()) return;
-    setConnecting(true);
     try {
-      await login(statsFmIdInput.trim());
+      await login();
     } catch (_) {
-    } finally {
-      setConnecting(false);
     }
   };
 
@@ -163,7 +157,7 @@ export default function PlayThermometer() {
     };
   };
 
-  // If not logged in, show Stats.fm Connect CTA
+  // If not logged in, show Spotify Connect CTA
   if (!user || !token) {
     return (
       <div className={`glass-panel p-8 text-center flex flex-col items-center justify-center min-h-[380px] animate-fade-in ${lt ? "bg-white border-neutral-200 text-neutral-800" : "text-floral-fg"}`}>
@@ -173,19 +167,10 @@ export default function PlayThermometer() {
         </h3>
         <p className={`text-sm max-w-md mb-6 leading-relaxed ${lt ? "text-neutral-600" : "text-neutral-400"}`}>
           {language === "pt"
-            ? "informe seu usuário do stats.fm (ex: arianator_ag8 ou seu username customizado) para sincronizar seu histórico recente do spotify. certifique-se de que seu perfil e histórico de streams no stats.fm estejam configurados como públicos!"
-            : "enter your stats.fm username or ID (e.g., arianator_ag8 or your custom username) to sync your recent spotify play history. make sure your stats.fm profile and streams are set to public!"}
+            ? "conecte sua conta do spotify para sincronizar automaticamente suas reproduções recentes de faixas da ariana grande de forma precisa!"
+            : "connect your spotify account to automatically sync your recent plays of ariana grande tracks with 100% precision!"}
         </p>
         <form onSubmit={handleConnect} className="w-full max-w-sm flex flex-col gap-3">
-          <input
-            type="text"
-            required
-            placeholder={language === "pt" ? "usuário ou ID do stats.fm" : "stats.fm username or ID"}
-            value={statsFmIdInput}
-            onChange={(e) => setStatsFmIdInput(e.target.value)}
-            className={`w-full px-4 py-3 border rounded text-sm focus:outline-none focus:border-rose text-center font-mono ${lt ? "bg-neutral-50 border-neutral-200 text-neutral-900" : "bg-neutral-900 border-neutral-800 text-white"}`}
-            disabled={isLoading || connecting}
-          />
           {loginError && (
             <div className="text-xs text-red-400 bg-red-950/40 border border-red-900 p-2.5 rounded text-left leading-relaxed">
               ⚠️ {loginError}
@@ -193,13 +178,13 @@ export default function PlayThermometer() {
           )}
           <button
             type="submit"
-            disabled={isLoading || connecting || !statsFmIdInput.trim()}
+            disabled={isLoading}
             className={`w-full flex items-center justify-center gap-2.5 px-6 py-3.5 font-bold text-sm tracking-wider uppercase transition-all duration-300 cursor-pointer border ${lt ? "bg-black text-white hover:bg-neutral-800 border-black" : "bg-white text-black hover:bg-neutral-200 border-neutral-850"}`}
           >
             <Play className="fill-current w-4 h-4" />
-            {isLoading || connecting
+            {isLoading
               ? (language === "pt" ? "conectando..." : "connecting...")
-              : (language === "pt" ? "conectar perfil" : "connect profile")}
+              : (language === "pt" ? "conectar spotify" : "connect spotify")}
           </button>
         </form>
       </div>

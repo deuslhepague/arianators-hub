@@ -4,6 +4,7 @@ import "./globals.css";
 import { SpotifyProvider } from "@/context/SpotifyContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { LanguageProvider } from "@/context/LanguageContext";
+import AppShell from "@/components/AppShell";
 
 const plusJakarta = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta",
@@ -35,7 +36,9 @@ export default function RootLayout({
         <LanguageProvider>
           <ThemeProvider>
             <SpotifyProvider>
-              {children}
+              <AppShell>
+                {children}
+              </AppShell>
             </SpotifyProvider>
           </ThemeProvider>
         </LanguageProvider>
@@ -43,3 +46,4 @@ export default function RootLayout({
     </html>
   );
 }
+

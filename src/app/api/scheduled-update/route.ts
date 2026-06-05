@@ -393,7 +393,7 @@ export async function POST(req: Request) {
       });
 
       try {
-        const syncUrl = new URL("/api/statsfm-sync", req.url);
+        const syncUrl = new URL("/api/spotify-sync", req.url);
         await fetch(syncUrl, {
           method: "POST",
           headers: {
@@ -401,7 +401,7 @@ export async function POST(req: Request) {
           }
         });
       } catch (syncError) {
-        console.error("Error running stats.fm sync from scheduled update:", syncError);
+        console.error("Error running Spotify sync from scheduled update:", syncError);
       }
     } catch (err) {
       console.error("Error saving updated data to Firestore:", err);

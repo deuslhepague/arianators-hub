@@ -9,6 +9,8 @@ interface SpotifyUser {
   display_name: string;
   images: { url: string }[];
   customId?: string;
+  syncEnabled?: boolean;
+  source?: string;
 }
 
 interface ThermometerData {
@@ -19,7 +21,7 @@ interface SpotifyContextType {
   user: SpotifyUser | null;
   token: string | null;
   isLoading: boolean;
-  login: (statsFmId: string) => Promise<void>;
+  login: () => Promise<void>;
   logout: () => void;
   checkRecentlyPlayed: (force?: boolean) => Promise<void>;
   thermometer: ThermometerData;
@@ -99,30 +101,44 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
   }, [focusTracks]);
 
   // Logout function
-  const logout = useCallback(() => {
-    localStorage.removeItem("statsfm_user");
-    setUser(null);
-    setToken(null);
-    setThermometer({});
-    setLoginError(null);
-    if (checkInterval.current) {
-      clearInterval(checkInterval.current);
+  const logout = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setUser(null);
+      setToken(null);
+      setThermometer({});
+      setLoginError(null);
+      if (checkInterval.current) {
+        clearInterval(checkInterval.current);
+      }
+      window.location.reload();
+    } catch (e) {
+      console.error("Logout error:", e);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
-  // Fetch token or login callback on mount
+  // Fetch session on mount
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("statsfm_user");
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          setUser(parsed);
-          setToken("statsfm");
-        } catch (_) {}
+    const checkSession = async () => {
+      try {
+        const response = await fetch("/api/auth/me");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.authenticated && data.user) {
+            setUser(data.user);
+            setToken(data.user.id);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch Spotify session:", error);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    }
+    };
+    void checkSession();
   }, []);
 
   // Update focus tracks dynamically on storage update event
@@ -217,59 +233,15 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, loadUserDailyStreams]);
 
-  // Login using Stats.fm ID
-  const login = async (statsFmId: string) => {
-    if (!statsFmId || !statsFmId.trim()) {
-      setLoginError("Please enter a valid stats.fm username or ID.");
-      throw new Error("EMPTY_ID");
-    }
-    
+  // Login using Spotify OAuth
+  const login = async () => {
     setLoginError(null);
     setIsLoading(true);
-    
     try {
-      const res = await fetch(`https://api.stats.fm/api/v1/users/${statsFmId.trim()}`);
-      if (!res.ok) {
-        throw new Error("USER_NOT_FOUND");
-      }
-      
-      const data = await res.json();
-      const profile = data.item;
-      
-      if (!profile) {
-        throw new Error("USER_NOT_FOUND");
-      }
-      
-      // Verify profile is public and recentlyPlayed is public
-      const isProfilePublic = profile.privacySettings?.profile === true;
-      const isRecentlyPlayedPublic = profile.privacySettings?.recentlyPlayed === true;
-      
-      if (!isProfilePublic || !isRecentlyPlayedPublic) {
-        throw new Error("PROFILE_PRIVATE");
-      }
-      
-      const u: SpotifyUser = {
-        id: profile.id,
-        display_name: profile.displayName || profile.customId || profile.id,
-        images: profile.image ? [{ url: profile.image }] : [],
-        customId: profile.customId
-      };
-      
-      localStorage.setItem("statsfm_user", JSON.stringify(u));
-      setUser(u);
-      setToken("statsfm");
-      void dbOperations.saveStatsFmProfile(u).catch((saveError) => {
-        console.error("Failed to persist stats.fm profile:", saveError);
-      });
+      window.location.href = "/api/auth/spotify";
     } catch (err: any) {
-      console.error("Stats.fm connection error:", err);
-      if (err.message === "USER_NOT_FOUND") {
-        setLoginError("Stats.fm profile not found. Please verify your username or ID.");
-      } else if (err.message === "PROFILE_PRIVATE") {
-        setLoginError("Your stats.fm profile or recently played list is private. Please make them public in your stats.fm settings.");
-      } else {
-        setLoginError("Could not connect to stats.fm. Check your connection and try again.");
-      }
+      console.error("Spotify login redirection error:", err);
+      setLoginError("Could not redirect to Spotify. Check your connection.");
       throw err;
     } finally {
       setIsLoading(false);
@@ -279,7 +251,6 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
   const checkRecentlyPlayed = useCallback(async (force = false) => {
     if (!user) return;
 
-    // Cooldown check (15 minutes)
     const storageKey = `arianator_last_sync_${user.id}`;
     let lastSyncTime = 0;
     if (typeof window !== "undefined") {
@@ -384,4 +355,3 @@ export function useSpotify() {
   }
   return context;
 }
-

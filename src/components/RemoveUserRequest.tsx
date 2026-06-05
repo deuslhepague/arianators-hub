@@ -3,51 +3,63 @@
 import React, { useState } from "react";
 import { useLanguage } from "@/context/LanguageContext";
 import { useTheme } from "@/context/ThemeContext";
+import { useSpotify } from "@/context/SpotifyContext";
 import { dbOperations } from "@/lib/firebase";
-import { Trash2, AlertCircle, CheckCircle } from "lucide-react";
+import { Trash2, AlertCircle, CheckCircle, LogIn } from "lucide-react";
 
 export default function RemoveUserRequest() {
   const { language } = useLanguage();
   const { theme } = useTheme();
+  const { user, login } = useSpotify();
 
-  const [statsId, setStatsId] = useState("");
+  const [spotifyId, setSpotifyId] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<boolean>(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmitManual = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!statsId.trim()) return;
+    if (!spotifyId.trim()) return;
 
     setLoading(true);
     setErrorMsg(null);
     setSuccessMsg(false);
 
     try {
-      // 1. Fetch to verify stats.fm profile exists
-      const res = await fetch(`https://api.stats.fm/api/v1/users/${statsId.trim()}`);
-      if (!res.ok) {
-        throw new Error("NOT_FOUND");
-      }
-      
-      const data = await res.json();
-      const profile = data.item;
-      if (!profile) {
-        throw new Error("NOT_FOUND");
-      }
-
-      // 2. Submit deletion request
-      const displayName = profile.displayName || profile.customId || profile.id;
-      await dbOperations.requestUserDeletion(profile.id, displayName);
+      const cleanId = spotifyId.trim();
+      // Submit deletion request using the entered Spotify ID
+      await dbOperations.requestUserDeletion(cleanId, cleanId);
       
       setSuccessMsg(true);
-      setStatsId("");
+      setSpotifyId("");
     } catch (err) {
       console.error(err);
       setErrorMsg(
         language === "pt"
-          ? "perfil do stats.fm não encontrado. verifique se digitou o ID/nome de usuário correto."
-          : "stats.fm profile not found. please check if you entered the correct username or ID."
+          ? "erro ao registrar solicitação. tente novamente."
+          : "error submitting request. please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLoggedInSubmit = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    setErrorMsg(null);
+    setSuccessMsg(false);
+
+    try {
+      await dbOperations.requestUserDeletion(user.id, user.display_name);
+      setSuccessMsg(true);
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(
+        language === "pt"
+          ? "erro ao registrar solicitação. tente novamente."
+          : "error submitting request. please try again."
       );
     } finally {
       setLoading(false);
@@ -67,8 +79,8 @@ export default function RemoveUserRequest() {
         
         <p className="text-xs text-neutral-400 leading-relaxed mb-6">
           {language === "pt"
-            ? "se você deseja que todos os seus registros de streaming e pontuações no leaderboard sejam removidos do site, insira seu ID ou usuário do stats.fm abaixo. sua solicitação será enviada aos administradores para aprovação."
-            : "if you wish to have all your streaming stats and leaderboard entries removed from the site, enter your stats.fm ID or username below. your request will be sent to the administrators for approval."}
+            ? "se você deseja que todos os seus registros de streaming e pontuações no leaderboard sejam removidos do site, solicite a exclusão abaixo. sua solicitação será revisada pelos administradores."
+            : "if you wish to have all your streaming stats and leaderboard entries removed from the site, submit a removal request below. your request will be reviewed by administrators."}
         </p>
 
         {successMsg && (
@@ -97,32 +109,80 @@ export default function RemoveUserRequest() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="w-full space-y-4">
-          <div className="text-left">
-            <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5 ml-1">
-              {language === "pt" ? "usuário ou ID do stats.fm" : "stats.fm username or ID"}
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. arianator_ag8"
-              value={statsId}
-              onChange={(e) => setStatsId(e.target.value)}
-              className={`w-full px-4 py-3 border rounded text-xs focus:outline-none focus:border-rose text-center font-mono ${theme === "light" ? "bg-neutral-50 border-neutral-300 text-neutral-900" : "bg-neutral-900 border-neutral-800 text-white"}`}
+        {user ? (
+          // Logged in flow
+          <div className={`w-full p-6 border rounded-lg text-center ${theme === "light" ? "bg-neutral-50 border-neutral-200" : "bg-neutral-900/60 border-neutral-800"}`}>
+            <p className="text-xs text-neutral-400 mb-2">
+              {language === "pt" ? "conectado como:" : "connected as:"}
+            </p>
+            <p className="text-sm font-bold text-rose mb-5">
+              {user.display_name} <span className="font-mono text-xs text-neutral-500">({user.id})</span>
+            </p>
+            
+            <button
+              onClick={handleLoggedInSubmit}
               disabled={loading}
-            />
+              className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-rose hover:bg-rose-dark disabled:opacity-50 text-floral-bg font-extrabold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-rose"
+            >
+              {loading 
+                ? (language === "pt" ? "processando..." : "processing...") 
+                : (language === "pt" ? "excluir meus dados" : "delete my data")}
+            </button>
           </div>
+        ) : (
+          // Not logged in flow
+          <div className="w-full space-y-6">
+            <div className={`p-4 border rounded-lg text-center ${theme === "light" ? "bg-neutral-50 border-neutral-200" : "bg-neutral-900/60 border-neutral-800"}`}>
+              <p className="text-xs text-neutral-400 mb-3 leading-relaxed">
+                {language === "pt"
+                  ? "para uma solicitação instantânea e segura, conecte-se com sua conta do Spotify antes."
+                  : "for an instant and secure request, connect your Spotify account first."}
+              </p>
+              <button
+                onClick={login}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-650 hover:bg-green-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer rounded"
+              >
+                <LogIn className="w-4 h-4" />
+                {language === "pt" ? "entrar com spotify" : "login with spotify"}
+              </button>
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading || !statsId.trim()}
-            className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-rose hover:bg-rose-dark disabled:opacity-50 text-floral-bg font-extrabold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-rose"
-          >
-            {loading 
-              ? (language === "pt" ? "processando..." : "processing...") 
-              : (language === "pt" ? "solicitar remoção" : "submit request")}
-          </button>
-        </form>
+            <div className="flex items-center my-4">
+              <div className="flex-1 border-t border-neutral-850"></div>
+              <span className="px-3 text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
+                {language === "pt" ? "ou digite manualmente" : "or enter manually"}
+              </span>
+              <div className="flex-1 border-t border-neutral-850"></div>
+            </div>
+
+            <form onSubmit={handleSubmitManual} className="w-full space-y-4">
+              <div className="text-left">
+                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-1.5 ml-1">
+                  {language === "pt" ? "usuário ou ID do spotify" : "spotify username or ID"}
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. your_spotify_id"
+                  value={spotifyId}
+                  onChange={(e) => setSpotifyId(e.target.value)}
+                  className={`w-full px-4 py-3 border rounded text-xs focus:outline-none focus:border-rose text-center font-mono ${theme === "light" ? "bg-neutral-50 border-neutral-300 text-neutral-900" : "bg-neutral-900 border-neutral-800 text-white"}`}
+                  disabled={loading}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !spotifyId.trim()}
+                className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-rose hover:bg-rose-dark disabled:opacity-50 text-floral-bg font-extrabold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-rose"
+              >
+                {loading 
+                  ? (language === "pt" ? "processando..." : "processing...") 
+                  : (language === "pt" ? "solicitar remoção" : "submit request")}
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );
