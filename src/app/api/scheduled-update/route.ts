@@ -143,6 +143,10 @@ export async function POST(req: Request) {
             "app-platform": "WebPlayer",
             "authorization": `Bearer ${token}`,
             "content-type": "application/json;charset=UTF-8",
+            "origin": "https://open.spotify.com",
+            "referer": "https://open.spotify.com/",
+            "spotify-app-version": "1.2.92.73.g916d0757",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0"
           },
           body: JSON.stringify({
             variables: {
@@ -257,6 +261,10 @@ export async function POST(req: Request) {
               "app-platform": "WebPlayer",
               "authorization": `Bearer ${token}`,
               "content-type": "application/json;charset=UTF-8",
+              "origin": "https://open.spotify.com",
+              "referer": "https://open.spotify.com/",
+              "spotify-app-version": "1.2.92.73.g916d0757",
+              "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0"
             },
             body: JSON.stringify({
               variables: { uri: `spotify:track:${track.spotifyTrackId}` },
