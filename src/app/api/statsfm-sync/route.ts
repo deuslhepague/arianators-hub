@@ -420,21 +420,27 @@ export async function POST(req: Request) {
     }
 
     const usersSnap = await db.collection("users").get();
-    const results: any[] = [];
-    for (const docSnap of usersSnap.docs) {
-      const data = docSnap.data() || {};
-      if (!data.statsFmUserId || data.syncEnabled === false) {
-        continue;
-      }
+    const eligibleUsers = usersSnap.docs
+      .map(docSnap => ({ id: docSnap.id, data: docSnap.data() || {} }))
+      .filter(u => u.data.statsFmUserId && u.data.syncEnabled !== false);
 
-      try {
-        results.push(await syncOneUser(db, data.statsFmUserId));
-      } catch (error: any) {
-        results.push({
-          userId: data.statsFmUserId,
-          error: error.message || "Failed to sync user"
-        });
-      }
+    const results: any[] = [];
+    const chunkSize = 5;
+
+    for (let i = 0; i < eligibleUsers.length; i += chunkSize) {
+      const chunk = eligibleUsers.slice(i, i + chunkSize);
+      const chunkPromises = chunk.map(async (user) => {
+        try {
+          return await syncOneUser(db, user.data.statsFmUserId);
+        } catch (error: any) {
+          return {
+            userId: user.data.statsFmUserId,
+            error: error.message || "Failed to sync user"
+          };
+        }
+      });
+      const chunkResults = await Promise.all(chunkPromises);
+      results.push(...chunkResults);
     }
 
     return NextResponse.json({

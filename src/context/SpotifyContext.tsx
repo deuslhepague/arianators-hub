@@ -173,7 +173,7 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
       const now = Date.now();
       const timeSinceLastSync = now - lastSyncTime;
 
-      if (!force && cachedThermometerStr && timeSinceLastSync < 900000) {
+      if (!force && cachedThermometerStr && timeSinceLastSync < 60000) {
         try {
           const parsed = JSON.parse(cachedThermometerStr);
           setThermometer(parsed);
@@ -290,7 +290,7 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     const now = Date.now();
     const timeSinceLastSync = now - lastSyncTime;
     
-    if (!force && timeSinceLastSync < 900000) {
+    if (!force && timeSinceLastSync < 60000) {
       try {
         const initialThermometer = await loadUserDailyStreams(user.id, false);
         setThermometer(initialThermometer);
@@ -336,13 +336,13 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
     checkRecentlyPlayedRef.current = checkRecentlyPlayed;
   }, [checkRecentlyPlayed]);
 
-  // Periodically check recently played (every 15 minutes)
+  // Periodically check recently played (every 1 minute)
   useEffect(() => {
     if (user) {
       checkRecentlyPlayedRef.current();
       checkInterval.current = setInterval(() => {
         checkRecentlyPlayedRef.current();
-      }, 900000);
+      }, 60000);
     }
 
     return () => {
