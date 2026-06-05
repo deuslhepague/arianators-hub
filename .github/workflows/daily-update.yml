@@ -1,9 +1,9 @@
-name: Daily Playcount Update
+name: Hourly Playcount Update
 
 on:
   schedule:
-    # Executa 00:00 GMT (0h) todo dia
-    - cron: '0 0 * * *'
+    # Executa a cada hora (no minuto 0)
+    - cron: '0 * * * *'
   # Permite trigger manual no GitHub
   workflow_dispatch:
 
@@ -12,13 +12,13 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Trigger daily playcount update
+      - name: Trigger hourly playcount update
         run: |
           curl -X POST \
             -H "x-admin-passcode: ${{ secrets.ADMIN_PASSCODE }}" \
             -H "Content-Type: application/json" \
             "${{ secrets.APP_URL }}/api/scheduled-update" \
-            -d '{"message":"automatic daily update"}'
+            -d '{"message":"automatic hourly update"}'
         
       - name: Wait a moment
         run: sleep 5

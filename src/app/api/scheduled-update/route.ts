@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import * as admin from "firebase-admin";
+import * as fs from "fs";
+import * as path from "path";
 import { getSpotifyToken, fetchSpotify } from "@/lib/spotify-token";
-import { dbOperations } from "@/lib/firebase";
 import { addStreamHistoryEntry, getTodayDateStr, StreamHistory } from "@/lib/streamHistory";
 
 interface TrackData {
@@ -14,20 +16,38 @@ interface TrackData {
   streams?: StreamHistory;
 }
 
-/**
- * Scheduled update route - updates playcount for all tracks at midnight GMT
- * 
- * GRATUITO: Use GitHub Actions para chamar este endpoint diariamente:
- * 1. Crie .github/workflows/daily-update.yml
- * 2. Configure para executar todo dia 00:00 GMT
- * 3. Envie request POST com header x-admin-passcode
- * 
- * Exemplo com cron:
- *   schedule:
- *     - cron: '0 0 * * *'  # 00:00 GMT
- * 
- * Ou use uptimerobot.com (free tier) para simples HTTP requests
- */
+// Inicializar Firebase Admin SDK com credenciais do arquivo JSON local
+function getAdminApp() {
+  if (admin.apps.length > 0) {
+    return admin.app();
+  }
+
+  try {
+    const credPath = path.join(
+      process.cwd(),
+      "arianatorshub-firebase-adminsdk-fbsvc-3373df087d.json"
+    );
+
+    if (!fs.existsSync(credPath)) {
+      throw new Error(`Firebase credentials file not found at ${credPath}`);
+    }
+
+    const serviceAccount = JSON.parse(
+      fs.readFileSync(credPath, "utf-8")
+    );
+
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      projectId: "arianatorshub"
+    });
+
+    return admin.app();
+  } catch (error: any) {
+    console.error("Firebase Admin initialization error:", error.message);
+    throw error;
+  }
+}
+
 export async function POST(req: Request) {
   try {
     // Verify admin passcode
@@ -41,16 +61,25 @@ export async function POST(req: Request) {
       );
     }
 
-    // Load all tracks from database
+    const app = getAdminApp();
+    const db = admin.firestore(app);
+
+    // Load catalog directly from Firestore
     let tracks: TrackData[] = [];
+    let albums: any[] = [];
     try {
-      const catalog = await dbOperations.loadCatalog();
-      if (catalog && catalog.tracks) {
-        tracks = catalog.tracks;
+      const catalogSnap = await db.collection("catalog").doc("config").get();
+      if (catalogSnap.exists) {
+        const catalogData = catalogSnap.data();
+        tracks = catalogData?.tracks || [];
+        albums = catalogData?.albums || [];
       }
     } catch (err) {
-      console.error("Error loading catalog:", err);
-      // Continue with empty array - will just update what we can
+      console.error("Error loading catalog from Firestore:", err);
+      return NextResponse.json(
+        { success: false, error: "Failed to load catalog from database" },
+        { status: 500 }
+      );
     }
 
     if (tracks.length === 0) {
@@ -70,15 +99,18 @@ export async function POST(req: Request) {
     const errors: any[] = [];
     let previousDayData: any = null;
 
-    // Get yesterday's data for comparison
+    // Get yesterday's date for comparison
     const yesterday = new Date();
     yesterday.setUTCDate(yesterday.getUTCDate() - 1);
     const yesterdayDateStr = yesterday.toISOString().split('T')[0];
 
     try {
-      previousDayData = await dbOperations.getHistoricalData(yesterdayDateStr);
+      const yesterdaySnap = await db.collection("historical").doc(yesterdayDateStr).get();
+      if (yesterdaySnap.exists) {
+        previousDayData = yesterdaySnap.data();
+      }
     } catch (_) {
-      console.warn("Could not load yesterday's data");
+      console.warn("Could not load yesterday's data from Firestore");
     }
 
     // Update each track's playcount from Spotify
@@ -130,12 +162,19 @@ export async function POST(req: Request) {
 
         const newPlaycount = parseInt(trackUnion.playcount || "0", 10) || 0;
         const oldPlaycount = track.totalStreams || 0;
-        const dailyGain = Math.max(0, newPlaycount - oldPlaycount);
+
+        // Calculate daily gain based on yesterday's final total count (to support multiple runs a day)
+        const yesterdayData = previousDayData?.tracks?.[track.id];
+        const yesterdayTotal = yesterdayData?.totalStreams || 0;
+        const yesterdayDailyGain = yesterdayData?.dailyGain || 0;
+
+        const dailyGain = yesterdayData !== undefined
+          ? Math.max(0, newPlaycount - yesterdayTotal)
+          : Math.max(0, newPlaycount - oldPlaycount);
 
         // Calculate gainDiff (change in daily gain compared to yesterday)
         let gainDiff = 0;
-        if (previousDayData?.tracks?.[track.id]) {
-          const yesterdayDailyGain = previousDayData.tracks[track.id].dailyGain || 0;
+        if (yesterdayData !== undefined) {
           gainDiff = dailyGain - yesterdayDailyGain;
         }
 
@@ -160,7 +199,7 @@ export async function POST(req: Request) {
           track.streams,
           today,
           newPlaycount,
-          oldPlaycount
+          yesterdayTotal || oldPlaycount
         );
 
       } catch (err: any) {
@@ -171,9 +210,13 @@ export async function POST(req: Request) {
       }
     }
 
-    // Save updated tracks to database
+    // Save updated tracks and albums back to Firestore catalog config
     try {
-      await dbOperations.saveCatalog(tracks, []);
+      await db.collection("catalog").doc("config").set({
+        tracks,
+        albums,
+        updatedAt: new Date().toISOString()
+      });
       
       // Also save today's snapshot to historical data
       const today = new Date().toISOString().split('T')[0];
@@ -190,7 +233,11 @@ export async function POST(req: Request) {
         };
       }
       
-      await dbOperations.saveHistoricalData(today, historicalSnapshot);
+      await db.collection("historical").doc(today).set({
+        date: today,
+        tracks: historicalSnapshot.tracks,
+        savedAt: new Date().toISOString()
+      });
 
       try {
         const syncUrl = new URL("/api/statsfm-sync", req.url);
@@ -204,8 +251,7 @@ export async function POST(req: Request) {
         console.error("Error running stats.fm sync from scheduled update:", syncError);
       }
     } catch (err) {
-      console.error("Error saving to database:", err);
-      // Still return success - tracks were fetched even if save failed
+      console.error("Error saving updated data to Firestore:", err);
     }
 
     return NextResponse.json({
@@ -228,9 +274,6 @@ export async function POST(req: Request) {
   }
 }
 
-/**
- * GET endpoint - returns current status and can trigger manual update
- */
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);

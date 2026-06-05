@@ -36,7 +36,6 @@ export function addStreamHistoryEntry(
 
   // If there's a previous entry, calculate based on difference
   if (Object.keys(currentHistory).length > 0) {
-    // Get the most recent previous entry
     const sortedDates = Object.keys(currentHistory).sort();
     const lastDate = sortedDates[sortedDates.length - 1];
     const lastEntry = currentHistory[lastDate];
@@ -44,8 +43,15 @@ export function addStreamHistoryEntry(
     if (lastEntry && dateStr > lastDate) {
       dailyStreams = Math.max(0, totalStreams - lastEntry.total);
     } else if (dateStr === lastDate) {
-      // Same day update
-      dailyStreams = lastEntry.daily || 0;
+      // Same day update - find the entry before this one to calculate daily gain
+      const secondToLastDate = sortedDates[sortedDates.length - 2];
+      const secondToLastEntry = secondToLastDate ? currentHistory[secondToLastDate] : null;
+      if (secondToLastEntry) {
+        dailyStreams = Math.max(0, totalStreams - secondToLastEntry.total);
+      } else {
+        // If there is no previous day, daily is totalStreams - initial previousTotalStreams
+        dailyStreams = Math.max(0, totalStreams - previousTotalStreams);
+      }
     }
   } else {
     // First entry
