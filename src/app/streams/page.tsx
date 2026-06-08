@@ -12,6 +12,8 @@ import {
   getMilestoneProgressPercent,
   getStreamsRemaining,
 } from "@/lib/milestones";
+import { calculateForecast } from "@/lib/forecasting";
+import StreamChart from "@/components/StreamChart";
 
 import {
   Search,
@@ -43,6 +45,7 @@ interface AlbumStat {
   totalStreams: number;
   dailyGain: number;
   coverUrl: string;
+  streams?: Record<string, { total: number; daily: number | null }>;
 }
 
 type StreamTab = "albums" | "tracks";
@@ -129,6 +132,8 @@ export default function StreamsPage() {
 
   // Selected Track for Milestones Modal
   const [selectedTrack, setSelectedTrack] = useState<TrackStat | null>(null);
+  // Selected Album for Milestones Modal
+  const [selectedAlbum, setSelectedAlbum] = useState<AlbumStat | null>(null);
 
   const formatNumber = (num: number) => {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -179,17 +184,21 @@ export default function StreamsPage() {
   };
 
   const selectedTrackMilestone = selectedTrack ? getMilestoneForStreams(selectedTrack.totalStreams) : null;
-  const selectedTrackPace =
-    selectedTrack && selectedTrack.avgDailyGain > 0
-      ? selectedTrack.avgDailyGain
-      : selectedTrack?.dailyGain ?? 0;
-  const selectedTrackDaysToGoal = selectedTrackMilestone && selectedTrack
-    ? getDaysUntilMilestone(
+
+  const forecast = useMemo(() => {
+    if (!selectedTrack || !selectedTrackMilestone) {
+      return { daysToGoal: null, dailyVelocity: 0 };
+    }
+    return calculateForecast(
+      selectedTrack.streams,
       selectedTrack.totalStreams,
       selectedTrackMilestone.milestoneTarget,
-      selectedTrackPace
-    )
-    : null;
+      selectedTrack.dailyGain || selectedTrack.avgDailyGain || 0
+    );
+  }, [selectedTrack, selectedTrackMilestone]);
+
+  const selectedTrackDaysToGoal = forecast.daysToGoal;
+  const selectedTrackPace = forecast.dailyVelocity;
   const selectedTrackRemainingStreams =
     selectedTrackMilestone && selectedTrack
       ? getStreamsRemaining(selectedTrack.totalStreams, selectedTrackMilestone.milestoneTarget)
@@ -197,6 +206,32 @@ export default function StreamsPage() {
   const selectedTrackProgressPercent =
     selectedTrackMilestone && selectedTrack
       ? getMilestoneProgressPercent(selectedTrack.totalStreams, selectedTrackMilestone.milestoneTarget)
+      : 0;
+
+  // Selected Album Milestones & Projections
+  const selectedAlbumMilestone = selectedAlbum ? getMilestoneForStreams(selectedAlbum.totalStreams) : null;
+
+  const albumForecast = useMemo(() => {
+    if (!selectedAlbum || !selectedAlbumMilestone) {
+      return { daysToGoal: null, dailyVelocity: 0 };
+    }
+    return calculateForecast(
+      selectedAlbum.streams,
+      selectedAlbum.totalStreams,
+      selectedAlbumMilestone.milestoneTarget,
+      selectedAlbum.dailyGain || 0
+    );
+  }, [selectedAlbum, selectedAlbumMilestone]);
+
+  const selectedAlbumDaysToGoal = albumForecast.daysToGoal;
+  const selectedAlbumPace = albumForecast.dailyVelocity;
+  const selectedAlbumRemainingStreams =
+    selectedAlbumMilestone && selectedAlbum
+      ? getStreamsRemaining(selectedAlbum.totalStreams, selectedAlbumMilestone.milestoneTarget)
+      : 0;
+  const selectedAlbumProgressPercent =
+    selectedAlbumMilestone && selectedAlbum
+      ? getMilestoneProgressPercent(selectedAlbum.totalStreams, selectedAlbumMilestone.milestoneTarget)
       : 0;
 
   return (
@@ -411,7 +446,8 @@ export default function StreamsPage() {
               processedAlbums.map((album) => (
                 <div
                   key={album.id}
-                  className={`flex items-center justify-between p-4 rounded border transition-all ${theme === "light" ? "border-transparent hover:border-neutral-300 hover:bg-neutral-50" : "border-transparent hover:border-neutral-800 hover:bg-neutral-950/60"}`}
+                  onClick={() => setSelectedAlbum(album)}
+                  className={`flex items-center justify-between p-4 rounded border transition-all cursor-pointer group ${theme === "light" ? "border-transparent hover:border-neutral-300 hover:bg-neutral-50" : "border-transparent hover:border-neutral-800 hover:bg-neutral-950/60"}`}
                 >
                   <div className="flex items-center gap-4">
                     <img
@@ -420,7 +456,7 @@ export default function StreamsPage() {
                       className={`w-14 h-14 rounded object-cover border ${theme === "light" ? "border-neutral-200" : "border-neutral-900"}`}
                     />
                     <div>
-                      <span className={`text-base md:text-lg font-bold block leading-tight ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
+                      <span className={`text-base md:text-lg font-bold block leading-tight group-hover:underline ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
                         {album.title}
                       </span>
                       <span className={`text-xs block mt-1 ${theme === "light" ? "text-neutral-600" : "text-neutral-400"}`}>{album.year}</span>
@@ -448,36 +484,36 @@ export default function StreamsPage() {
       {/* MILESTONE PROGRESS MODAL POPUP */}
       {selectedTrack && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className={`w-full max-w-2xl rounded-lg p-8 relative animate-slide-up ${theme === "light" ? "bg-white border border-neutral-200 text-neutral-950" : "bg-wine border border-panel-border text-rose"}`}>
+          <div className={`w-full max-w-2xl rounded-lg p-4 md:p-8 relative animate-slide-up max-h-[90vh] overflow-y-auto ${theme === "light" ? "bg-white border border-neutral-200 text-neutral-950" : "bg-wine border border-panel-border text-rose"}`}>
             <button
               onClick={() => setSelectedTrack(null)}
-              className={`absolute top-6 right-6 p-2 rounded-full transition-all cursor-pointer ${theme === "light" ? "hover:bg-neutral-100 text-neutral-500 hover:text-black" : "hover:bg-wine-deep text-mauve hover:text-rose"}`}
+              className={`absolute top-4 right-4 md:top-6 md:right-6 p-2 rounded-full transition-all cursor-pointer ${theme === "light" ? "hover:bg-neutral-100 text-neutral-500 hover:text-black" : "hover:bg-wine-deep text-mauve hover:text-rose"}`}
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5 md:w-6 md:h-6" />
             </button>
 
-            <div className={`flex gap-6 mb-8 items-center border-b pb-6 ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}>
+            <div className={`flex flex-col sm:flex-row gap-4 sm:gap-6 mb-6 items-center sm:items-start border-b pb-6 text-center sm:text-left ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}>
               <img
                 src={selectedTrack.coverUrl}
                 alt={selectedTrack.title}
                 className={`w-20 h-20 rounded-md object-cover border shadow-md ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}
               />
-              <div>
-                <h3 className={`text-2xl md:text-3xl font-serif tracking-wide leading-tight ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>{selectedTrack.title}</h3>
-                <p className={`text-sm mt-1.5 font-serif uppercase tracking-wider ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>{selectedTrack.artist}</p>
+              <div className="flex-1 min-w-0">
+                <h3 className={`text-xl md:text-3xl font-serif tracking-wide leading-tight ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>{selectedTrack.title}</h3>
+                <p className={`text-xs md:text-sm mt-1.5 font-serif uppercase tracking-wider ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>{selectedTrack.artist}</p>
               </div>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
-                <div className={`flex justify-between text-xs font-bold uppercase tracking-wider mb-2.5 ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
+                <div className={`flex justify-between text-[10px] md:text-xs font-bold uppercase tracking-wider mb-2.5 ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
                   <span>{language === "pt" ? "progresso para" : "progress to"} {selectedTrackMilestone?.milestoneName ?? selectedTrack.milestoneName}</span>
-                  <span className={`font-extrabold text-sm ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>
+                  <span className={`font-extrabold text-xs md:text-sm ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>
                     {Math.round(selectedTrackProgressPercent * 10) / 10}%
                   </span>
                 </div>
 
-                <div className={`w-full h-3 border rounded-full overflow-hidden ${theme === "light" ? "bg-neutral-100 border-neutral-200" : "bg-wine-deep border-panel-border"}`}>
+                <div className={`w-full h-2.5 border rounded-full overflow-hidden ${theme === "light" ? "bg-neutral-100 border-neutral-200" : "bg-wine-deep border-panel-border"}`}>
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${theme === "light" ? "bg-black" : "bg-rose"}`}
                     style={{
@@ -487,7 +523,7 @@ export default function StreamsPage() {
                 </div>
               </div>
 
-              <div className={`p-6 rounded border space-y-3.5 text-sm md:text-base font-mono ${theme === "light" ? "bg-neutral-50 border-neutral-200" : "bg-wine-deep border-panel-border"}`}>
+              <div className={`p-4 md:p-6 rounded border space-y-3 md:space-y-3.5 text-xs md:text-sm font-mono ${theme === "light" ? "bg-neutral-50 border-neutral-200" : "bg-wine-deep border-panel-border"}`}>
                 <div className="flex justify-between">
                   <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "streams totais:" : "total streams:"}</span>
                   <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>{formatNumber(selectedTrack.totalStreams)}</span>
@@ -500,9 +536,9 @@ export default function StreamsPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "ganho diário:" : "daily gain velocity:"}</span>
-                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>+{formatNumber(selectedTrack.dailyGain)}</span>
+                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>+{formatNumber(selectedTrackPace)}</span>
                 </div>
-                <div className={`flex justify-between border-t pt-3.5 mt-3.5 ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}>
+                <div className={`flex justify-between border-t pt-3 mt-3 ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}>
                   <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "dias estimados para a meta:" : "est. days to goal:"}</span>
                   <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>
                     {selectedTrackDaysToGoal === null ? "—" : `${selectedTrackDaysToGoal} ${language === "pt" ? "dias" : "days"}`}
@@ -515,12 +551,116 @@ export default function StreamsPage() {
                   </span>
                 </div>
               </div>
+
+              {/* Interactive Stream Chart */}
+              {selectedTrack.streams && (
+                <div className={`p-3.5 md:p-5 rounded border ${theme === "light" ? "bg-neutral-50 border-neutral-200" : "bg-wine-deep/40 border-panel-border"}`}>
+                  <h4 className={`text-[10px] md:text-xs font-bold uppercase tracking-wider mb-3 font-sans ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
+                    {language === "pt" ? "gráfico de desempenho histórico" : "historical performance chart"}
+                  </h4>
+                  <StreamChart streams={selectedTrack.streams} theme={theme} language={language} />
+                </div>
+              )}
             </div>
 
-            <div className="mt-8 flex justify-end">
+            <div className="mt-6 md:mt-8 flex justify-end">
               <button
                 onClick={() => setSelectedTrack(null)}
-                className={`px-6 py-3 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border ${theme === "light" ? "bg-black hover:bg-neutral-800 text-white border-black" : "bg-rose hover:opacity-90 text-floral-bg border-rose"}`}
+                className={`w-full sm:w-auto px-6 py-3 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border ${theme === "light" ? "bg-black hover:bg-neutral-800 text-white border-black" : "bg-rose hover:opacity-90 text-floral-bg border-rose"}`}
+              >
+                {t("streams.close")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ALBUM MILESTONE PROGRESS MODAL POPUP */}
+      {selectedAlbum && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className={`w-full max-w-2xl rounded-lg p-4 md:p-8 relative animate-slide-up max-h-[90vh] overflow-y-auto ${theme === "light" ? "bg-white border border-neutral-200 text-neutral-950" : "bg-wine border border-panel-border text-rose"}`}>
+            <button
+              onClick={() => setSelectedAlbum(null)}
+              className={`absolute top-4 right-4 md:top-6 md:right-6 p-2 rounded-full transition-all cursor-pointer ${theme === "light" ? "hover:bg-neutral-100 text-neutral-500 hover:text-black" : "hover:bg-wine-deep text-mauve hover:text-rose"}`}
+            >
+              <X className="w-5 h-5 md:w-6 md:h-6" />
+            </button>
+
+            <div className={`flex flex-col sm:flex-row gap-4 sm:gap-6 mb-6 items-center sm:items-start border-b pb-6 text-center sm:text-left ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}>
+              <img
+                src={selectedAlbum.coverUrl}
+                alt={selectedAlbum.title}
+                className={`w-20 h-20 rounded-md object-cover border shadow-md ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}
+              />
+              <div className="flex-1 min-w-0">
+                <h3 className={`text-xl md:text-3xl font-serif tracking-wide leading-tight ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>{selectedAlbum.title}</h3>
+                <p className={`text-xs md:text-sm mt-1.5 font-serif uppercase tracking-wider ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>Ariana Grande</p>
+              </div>
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <div className={`flex justify-between text-[10px] md:text-xs font-bold uppercase tracking-wider mb-2.5 ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
+                  <span>{language === "pt" ? "progresso para" : "progress to"} {selectedAlbumMilestone?.milestoneName}</span>
+                  <span className={`font-extrabold text-xs md:text-sm ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>
+                    {Math.round(selectedAlbumProgressPercent * 10) / 10}%
+                  </span>
+                </div>
+
+                <div className={`w-full h-2.5 border rounded-full overflow-hidden ${theme === "light" ? "bg-neutral-100 border-neutral-200" : "bg-wine-deep border-panel-border"}`}>
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${theme === "light" ? "bg-black" : "bg-rose"}`}
+                    style={{
+                      width: `${selectedAlbumProgressPercent}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className={`p-4 md:p-6 rounded border space-y-3 md:space-y-3.5 text-xs md:text-sm font-mono ${theme === "light" ? "bg-neutral-50 border-neutral-200" : "bg-wine-deep border-panel-border"}`}>
+                <div className="flex justify-between">
+                  <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "streams totais:" : "total streams:"}</span>
+                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>{formatNumber(selectedAlbum.totalStreams)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "streams necessários:" : "streams needed:"}</span>
+                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>
+                    {formatNumber(selectedAlbumRemainingStreams)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "ganho diário:" : "daily gain velocity:"}</span>
+                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>+{formatNumber(selectedAlbumPace)}</span>
+                </div>
+                <div className={`flex justify-between border-t pt-3 mt-3 ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}>
+                  <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "dias estimados para a meta:" : "est. days to goal:"}</span>
+                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>
+                    {selectedAlbumDaysToGoal === null ? "—" : `${selectedAlbumDaysToGoal} ${language === "pt" ? "dias" : "days"}`}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "data prevista:" : "target date:"}</span>
+                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>
+                    {selectedAlbumDaysToGoal === null ? "—" : getMilestoneDate(selectedAlbumDaysToGoal)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Interactive Stream Chart */}
+              {selectedAlbum.streams && (
+                <div className={`p-3.5 md:p-5 rounded border ${theme === "light" ? "bg-neutral-50 border-neutral-200" : "bg-wine-deep/40 border-panel-border"}`}>
+                  <h4 className={`text-[10px] md:text-xs font-bold uppercase tracking-wider mb-3 font-sans ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
+                    {language === "pt" ? "gráfico de desempenho histórico" : "historical performance chart"}
+                  </h4>
+                  <StreamChart streams={selectedAlbum.streams} theme={theme} language={language} />
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 md:mt-8 flex justify-end">
+              <button
+                onClick={() => setSelectedAlbum(null)}
+                className={`w-full sm:w-auto px-6 py-3 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border ${theme === "light" ? "bg-black hover:bg-neutral-800 text-white border-black" : "bg-rose hover:opacity-90 text-floral-bg border-rose"}`}
               >
                 {t("streams.close")}
               </button>

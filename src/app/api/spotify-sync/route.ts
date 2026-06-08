@@ -148,9 +148,9 @@ async function syncOneUser(db: admin.firestore.Firestore, userId: string) {
 
   // 2. Fetch recent plays
   const items = await fetchSpotifyRecentPlays(accessToken);
-  
+
   // Sort chronologically (oldest first)
-  const sortedItems = [...items].sort((a: any, b: any) => 
+  const sortedItems = [...items].sort((a: any, b: any) =>
     new Date(a.played_at).getTime() - new Date(b.played_at).getTime()
   );
 
@@ -229,7 +229,7 @@ async function syncOneUser(db: admin.firestore.Firestore, userId: string) {
 
     userTrackIncrementsByDate[dateStr][trackId] = (userTrackIncrementsByDate[dateStr][trackId] || 0) + 1;
     processedByDate[dateStr] += 1;
-    
+
     if (!updatedLastTrackedPlayedAt || playedAt > updatedLastTrackedPlayedAt) {
       updatedLastTrackedPlayedAt = playedAt;
     }
@@ -251,7 +251,7 @@ async function syncOneUser(db: admin.firestore.Firestore, userId: string) {
       if (titleMatch) {
         const mainTrackId = titleMatch.spotifyTrackId || titleMatch.id;
         songStreamIncrementsByDate[dateStr][mainTrackId] = (songStreamIncrementsByDate[dateStr][mainTrackId] || 0) + 1;
-        
+
         pendingDocsByDate[dateStr][trackId] = {
           trackId,
           trackName,

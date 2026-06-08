@@ -82,7 +82,7 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
       if (stored) {
         try {
           return JSON.parse(stored);
-        } catch (_) {}
+        } catch (_) { }
       }
     }
     return DEFAULT_FOCUS_TRACKS;
@@ -154,7 +154,7 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
             }
             return parsed;
           });
-        } catch (_) {}
+        } catch (_) { }
       }
     };
     window.addEventListener("storage_admin_update", handleUpdate);
@@ -194,12 +194,12 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
           const parsed = JSON.parse(cachedThermometerStr);
           setThermometer(parsed);
           return parsed;
-        } catch (_) {}
+        } catch (_) { }
       }
 
       const dailyStreams = await dbOperations.getUserDailyStreams(userId);
       const initialThermometer: ThermometerData = {};
-      
+
       focusTracks.forEach(url => {
         const id = extractTrackId(url);
         initialThermometer[id] = 0;
@@ -260,7 +260,7 @@ export function SpotifyProvider({ children }: { children: React.ReactNode }) {
 
     const now = Date.now();
     const timeSinceLastSync = now - lastSyncTime;
-    
+
     if (!force && timeSinceLastSync < 60000) {
       try {
         const initialThermometer = await loadUserDailyStreams(user.id, false);

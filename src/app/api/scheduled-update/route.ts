@@ -206,9 +206,9 @@ export async function POST(req: Request) {
             const yesterdayData = previousDayData?.albums?.[album.id];
             const yesterdayTotal = yesterdayData?.totalStreams || 0;
 
-            const dailyGain = yesterdayData !== undefined
+            const dailyGain = (yesterdayData !== undefined && albumSum !== yesterdayTotal)
               ? Math.max(0, albumSum - yesterdayTotal)
-              : Math.max(0, albumSum - oldPlaycount);
+              : (yesterdayData !== undefined ? (yesterdayData.dailyGain || album.dailyGain || 0) : Math.max(0, albumSum - oldPlaycount));
 
             albumUpdates.push({
               id: album.id,
@@ -312,14 +312,18 @@ export async function POST(req: Request) {
         const yesterdayTotal = yesterdayData?.totalStreams || 0;
         const yesterdayDailyGain = yesterdayData?.dailyGain || 0;
 
-        const dailyGain = yesterdayData !== undefined
-          ? Math.max(0, newPlaycount - yesterdayTotal)
-          : Math.max(0, newPlaycount - oldPlaycount);
+        let dailyGain = 0;
+        let gainDiff = track.gainDiff || 0;
 
-        // Calculate gainDiff (change in daily gain compared to yesterday)
-        let gainDiff = 0;
-        if (yesterdayData !== undefined) {
+        if (yesterdayData !== undefined && newPlaycount !== yesterdayTotal) {
+          dailyGain = Math.max(0, newPlaycount - yesterdayTotal);
           gainDiff = dailyGain - yesterdayDailyGain;
+        } else if (yesterdayData !== undefined) {
+          // Spotify has not updated yet, retain yesterday's gain and gainDiff
+          dailyGain = yesterdayDailyGain || track.dailyGain || 0;
+          gainDiff = yesterdayData.gainDiff || track.gainDiff || 0;
+        } else {
+          dailyGain = Math.max(0, newPlaycount - oldPlaycount);
         }
 
         updates.push({

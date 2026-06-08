@@ -51,9 +51,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           {/* Data Removal Request Link */}
           <Link
             href="/remove-user"
-            className={`hover:text-rose transition-colors uppercase font-bold tracking-wider text-[10px] ${
-              activeTab === "remove-user" ? "text-rose" : ""
-            }`}
+            className={`hover:text-rose transition-colors uppercase font-bold tracking-wider text-[10px] ${activeTab === "remove-user" ? "text-rose" : ""
+              }`}
           >
             {language === "pt" ? "remover dados" : "remove data"}
           </Link>
@@ -68,14 +67,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 {user.display_name}
               </span>
             </div>
-          ) : (
-            <button
-              onClick={() => router.push("/streams")}
-              className="hover:text-rose uppercase font-bold tracking-wider text-[10px] pl-2 border-l border-panel-border cursor-pointer bg-transparent border-0"
-            >
-              {t("auth.connect")}
-            </button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -97,33 +89,29 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex justify-center flex-wrap gap-x-8 gap-y-2 text-xs font-bold uppercase tracking-widest text-mauve">
           <Link
             href="/guide"
-            className={`hover:text-rose transition-colors ${
-              activeTab === "guide" ? "text-rose underline underline-offset-8 decoration-1" : ""
-            }`}
+            className={`hover:text-rose transition-colors ${activeTab === "guide" ? "text-rose underline underline-offset-8 decoration-1" : ""
+              }`}
           >
             {t("nav.guide")}
           </Link>
           <Link
             href="/streams"
-            className={`hover:text-rose transition-colors ${
-              activeTab === "streams" ? "text-rose underline underline-offset-8 decoration-1" : ""
-            }`}
+            className={`hover:text-rose transition-colors ${activeTab === "streams" ? "text-rose underline underline-offset-8 decoration-1" : ""
+              }`}
           >
             {t("nav.streams")}
           </Link>
           <Link
             href="/generator"
-            className={`hover:text-rose transition-colors ${
-              activeTab === "generator" ? "text-rose underline underline-offset-8 decoration-1" : ""
-            }`}
+            className={`hover:text-rose transition-colors ${activeTab === "generator" ? "text-rose underline underline-offset-8 decoration-1" : ""
+              }`}
           >
             {t("nav.generator")}
           </Link>
           <Link
             href="/admin"
-            className={`hover:text-rose transition-colors ${
-              activeTab === "admin" ? "text-rose underline underline-offset-8 decoration-1" : ""
-            }`}
+            className={`hover:text-rose transition-colors ${activeTab === "admin" ? "text-rose underline underline-offset-8 decoration-1" : ""
+              }`}
           >
             {t("nav.admin")}
           </Link>
@@ -149,11 +137,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Link
               key={item.id}
               href={item.path}
-              className={`flex flex-col items-center gap-1 transition-all ${
-                isActive
+              className={`flex flex-col items-center gap-1 transition-all ${isActive
                   ? (theme === "light" ? "text-black scale-110 font-bold" : "text-white scale-110 font-bold")
                   : (theme === "light" ? "text-neutral-500 hover:text-black" : "text-neutral-400 hover:text-white")
-              }`}
+                }`}
             >
               <Icon className="w-5 h-5" />
               <span className="text-[9px] font-bold uppercase tracking-widest">{item.label}</span>
