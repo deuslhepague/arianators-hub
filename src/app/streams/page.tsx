@@ -135,7 +135,8 @@ export default function StreamsPage() {
   // Selected Album for Milestones Modal
   const [selectedAlbum, setSelectedAlbum] = useState<AlbumStat | null>(null);
 
-  const formatNumber = (num: number) => {
+  const formatNumber = (num: any) => {
+    if (num === null || num === undefined || isNaN(num)) return "0";
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   };
 

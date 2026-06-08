@@ -78,7 +78,8 @@ export default function StreamChart({ streams, theme, language }: StreamChartPro
     };
   }, [filteredPoints, n]);
 
-  const formatNumber = (num: number) => {
+  const formatNumber = (num: any) => {
+    if (num === null || num === undefined || isNaN(num)) return "0";
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   };
 
