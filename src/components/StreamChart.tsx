@@ -310,11 +310,16 @@ export default function StreamChart({ streams, theme, language }: StreamChartPro
                   width={barWidth}
                   height={barHeight}
                   rx="1"
-                  className={`transition-all duration-150 ${
-                    isHovered
-                      ? (isLight ? "fill-neutral-450" : "fill-rose/60")
-                      : (isLight ? "fill-neutral-200" : "fill-wine-deep stroke stroke-panel-border/30")
-                  }`}
+                  fill={isHovered 
+                    ? (isLight ? "#737373" : "#e05375") 
+                    : (isLight ? "#e5e5e5" : "#2a1221")
+                  }
+                  stroke={isHovered 
+                    ? (isLight ? "#525252" : "#ff8da9") 
+                    : (isLight ? "none" : "#3d192f")
+                  }
+                  strokeWidth={isLight ? 0 : 1}
+                  className="transition-all duration-150"
                 />
               );
             })}
