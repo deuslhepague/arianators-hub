@@ -46,6 +46,7 @@ interface AlbumStat {
   dailyGain: number;
   coverUrl: string;
   spotifyAlbumId?: string;
+  isParticipation?: boolean;
   streams?: { [date: string]: { total: number; daily: number | null } };
 }
 
@@ -565,11 +566,30 @@ export default function AdminPanel() {
         // 1. Merge album into current albums catalog
         const albumIndex = albums.findIndex(a => a.spotifyAlbumId === newAlbum.spotifyAlbumId || a.id === newAlbum.id);
         let updatedAlbums = [...albums];
+        const today = getTodayDateStr();
+
         if (albumIndex !== -1) {
+          const existingAlbum = updatedAlbums[albumIndex];
+          const newTotalStreams = newAlbum.totalStreams || existingAlbum.totalStreams;
+          
+          const mergedStreams = (newTotalStreams !== existingAlbum.totalStreams || !existingAlbum.streams)
+            ? addStreamHistoryEntry(existingAlbum.streams, today, newTotalStreams, existingAlbum.totalStreams)
+            : existingAlbum.streams;
+
+          const newDailyGain = (newTotalStreams !== existingAlbum.totalStreams)
+            ? (mergedStreams[today]?.daily || existingAlbum.dailyGain || 0)
+            : (existingAlbum.dailyGain || 0);
+
           updatedAlbums[albumIndex] = {
-            ...updatedAlbums[albumIndex],
-            ...newAlbum,
-            totalStreams: newAlbum.totalStreams || updatedAlbums[albumIndex].totalStreams,
+            ...existingAlbum,
+            title: newAlbum.title || existingAlbum.title,
+            year: newAlbum.year || existingAlbum.year,
+            coverUrl: newAlbum.coverUrl || existingAlbum.coverUrl,
+            spotifyAlbumId: newAlbum.spotifyAlbumId || existingAlbum.spotifyAlbumId,
+            isParticipation: newAlbum.isParticipation !== undefined ? newAlbum.isParticipation : existingAlbum.isParticipation,
+            totalStreams: newTotalStreams,
+            dailyGain: newDailyGain,
+            streams: mergedStreams
           };
         } else {
           updatedAlbums.push(newAlbum);
@@ -580,10 +600,41 @@ export default function AdminPanel() {
         newTracks.forEach((newTrack: any) => {
           const trackIndex = updatedTracks.findIndex(t => t.spotifyTrackId === newTrack.spotifyTrackId || t.id === newTrack.id);
           if (trackIndex !== -1) {
+            const existingTrack = updatedTracks[trackIndex];
+            const newTotalStreams = newTrack.totalStreams || existingTrack.totalStreams;
+            
+            const mergedAlternativeIds = Array.from(new Set([
+              ...(existingTrack.alternativeIds || []),
+              ...(newTrack.alternativeIds || [])
+            ]));
+
+            const mergedStreams = (newTotalStreams !== existingTrack.totalStreams || !existingTrack.streams)
+              ? addStreamHistoryEntry(existingTrack.streams, today, newTotalStreams, existingTrack.totalStreams)
+              : existingTrack.streams;
+
+            const newDailyGain = (newTotalStreams !== existingTrack.totalStreams)
+              ? (mergedStreams[today]?.daily || existingTrack.dailyGain || 0)
+              : (existingTrack.dailyGain || 0);
+
+            const newGainDiff = (newTotalStreams !== existingTrack.totalStreams)
+              ? (newDailyGain - (existingTrack.dailyGain || 0))
+              : (existingTrack.gainDiff || 0);
+
             updatedTracks[trackIndex] = {
-              ...updatedTracks[trackIndex],
-              ...newTrack,
-              totalStreams: newTrack.totalStreams || updatedTracks[trackIndex].totalStreams,
+              ...existingTrack,
+              title: newTrack.title || existingTrack.title,
+              artist: newTrack.artist || existingTrack.artist,
+              coverUrl: newTrack.coverUrl || existingTrack.coverUrl,
+              milestoneName: newTrack.milestoneName || existingTrack.milestoneName,
+              milestoneTarget: newTrack.milestoneTarget || existingTrack.milestoneTarget,
+              spotifyTrackId: newTrack.spotifyTrackId || existingTrack.spotifyTrackId,
+              spotifyAlbumId: newTrack.spotifyAlbumId || existingTrack.spotifyAlbumId,
+              totalStreams: newTotalStreams,
+              dailyGain: newDailyGain,
+              gainDiff: newGainDiff,
+              avgDailyGain: existingTrack.avgDailyGain || 0,
+              alternativeIds: mergedAlternativeIds,
+              streams: mergedStreams
             };
           } else {
             updatedTracks.push(newTrack);
@@ -635,11 +686,44 @@ export default function AdminPanel() {
         // Merge track into current tracks catalog
         let updatedTracks = [...tracks];
         const trackIndex = updatedTracks.findIndex(t => t.spotifyTrackId === newTrack.spotifyTrackId || t.id === newTrack.id);
+        const today = getTodayDateStr();
+
         if (trackIndex !== -1) {
+          const existingTrack = updatedTracks[trackIndex];
+          const newTotalStreams = newTrack.totalStreams || existingTrack.totalStreams;
+
+          const mergedAlternativeIds = Array.from(new Set([
+            ...(existingTrack.alternativeIds || []),
+            ...(newTrack.alternativeIds || [])
+          ]));
+
+          const mergedStreams = (newTotalStreams !== existingTrack.totalStreams || !existingTrack.streams)
+            ? addStreamHistoryEntry(existingTrack.streams, today, newTotalStreams, existingTrack.totalStreams)
+            : existingTrack.streams;
+
+          const newDailyGain = (newTotalStreams !== existingTrack.totalStreams)
+            ? (mergedStreams[today]?.daily || existingTrack.dailyGain || 0)
+            : (existingTrack.dailyGain || 0);
+
+          const newGainDiff = (newTotalStreams !== existingTrack.totalStreams)
+            ? (newDailyGain - (existingTrack.dailyGain || 0))
+            : (existingTrack.gainDiff || 0);
+
           updatedTracks[trackIndex] = {
-            ...updatedTracks[trackIndex],
-            ...newTrack,
-            totalStreams: newTrack.totalStreams || updatedTracks[trackIndex].totalStreams,
+            ...existingTrack,
+            title: newTrack.title || existingTrack.title,
+            artist: newTrack.artist || existingTrack.artist,
+            coverUrl: newTrack.coverUrl || existingTrack.coverUrl,
+            milestoneName: newTrack.milestoneName || existingTrack.milestoneName,
+            milestoneTarget: newTrack.milestoneTarget || existingTrack.milestoneTarget,
+            spotifyTrackId: newTrack.spotifyTrackId || existingTrack.spotifyTrackId,
+            spotifyAlbumId: newTrack.spotifyAlbumId || existingTrack.spotifyAlbumId,
+            totalStreams: newTotalStreams,
+            dailyGain: newDailyGain,
+            gainDiff: newGainDiff,
+            avgDailyGain: existingTrack.avgDailyGain || 0,
+            alternativeIds: mergedAlternativeIds,
+            streams: mergedStreams
           };
         } else {
           updatedTracks.push(newTrack);
