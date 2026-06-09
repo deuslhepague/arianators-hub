@@ -312,40 +312,6 @@ export const dbOperations = {
     const data = await response.json();
     return data.success ? { tracks: data.tracks || [], albums: data.albums || [] } : null;
   },
-
-  async saveHistoricalData(dateStr: string, snapshot: any) {
-    if (!isFirebaseConfigured) {
-      throw new Error("Firebase not configured");
-    }
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...getAdminAuthHeaders(),
-    };
-    if (!headers.Authorization) {
-      throw new Error("Admin session not authenticated. Please log in.");
-    }
-
-    return postJson("/api/historical-data", { dateStr, snapshot }, headers);
-  },
-
-  async getHistoricalData(dateStr: string): Promise<any | null> {
-    if (!isFirebaseConfigured) {
-      throw new Error("Firebase not configured");
-    }
-    const headers: Record<string, string> = getAdminAuthHeaders();
-    if (!headers.Authorization) {
-      throw new Error("Admin session not authenticated. Please log in.");
-    }
-
-    const response = await fetch(`/api/historical-data?date=${encodeURIComponent(dateStr)}`, { headers });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || "Failed to load historical data");
-    }
-
-    const data = await response.json();
-    return data.data || null;
-  },
 };
 
 export { db };

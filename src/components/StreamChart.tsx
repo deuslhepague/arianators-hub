@@ -16,7 +16,7 @@ interface StreamChartProps {
 type TimeRange = "7d" | "30d" | "all";
 
 export default function StreamChart({ streams, theme, language }: StreamChartProps) {
-  const [range, setRange] = useState<TimeRange>("all");
+  const [range, setRange] = useState<TimeRange>("7d");
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });

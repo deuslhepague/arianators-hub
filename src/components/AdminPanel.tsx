@@ -145,10 +145,6 @@ export default function AdminPanel() {
   const [importAlbumUrlOrId, setImportAlbumUrlOrId] = useState("");
   const [importingAlbum, setImportingAlbum] = useState(false);
 
-  // Historical Log Editor states
-  const [selectedLogDate, setSelectedLogDate] = useState("");
-  const [historyData, setHistoryData] = useState<any>({ tracks: {}, albums: {} });
-
   const isAdminSessionValid = () => {
     if (typeof window === "undefined") return false;
     const token = sessionStorage.getItem("arianator_admin_token");
@@ -170,16 +166,6 @@ export default function AdminPanel() {
       if (isAdminSessionValid()) {
         setIsAuthenticated(true);
       }
-
-      const today = new Date().toISOString().split("T")[0];
-      setSelectedLogDate(today);
-      void dbOperations.getHistoricalData(today).then((data: any) => {
-        if (data) {
-          setHistoryData(data);
-        }
-      }).catch((error: unknown) => {
-        console.error("Failed to load historical data:", error);
-      });
     }
   }, []);
 
@@ -226,67 +212,6 @@ export default function AdminPanel() {
   const showStatus = (msg: string) => {
     setStatusMessage(msg);
     setTimeout(() => setStatusMessage(null), 4000);
-  };
-
-  const getHistoricalValue = (type: "tracks" | "albums", itemId: string, field: "totalStreams" | "dailyGain"): number => {
-    if (historyData[type]?.[itemId]?.[selectedLogDate] !== undefined) {
-      return historyData[type][itemId][selectedLogDate][field];
-    }
-    // Fallback: use current live track/album value
-    if (type === "tracks") {
-      const track = tracks.find(t => t.id === itemId);
-      return track ? (track[field as keyof TrackStat] as number) || 0 : 0;
-    } else {
-      const album = albums.find(a => a.id === itemId);
-      return album ? (album[field as keyof AlbumStat] as number) || 0 : 0;
-    }
-  };
-
-  const handleHistoricalEdit = (type: "tracks" | "albums", itemId: string, field: "totalStreams" | "dailyGain", value: number) => {
-    setHistoryData((prev: any) => {
-      const updated = { ...prev };
-      if (!updated[type]) updated[type] = {};
-      if (!updated[type][itemId]) updated[type][itemId] = {};
-      if (!updated[type][itemId][selectedLogDate]) {
-        // Pre-fill with current/default values
-        const defaultTotal = getHistoricalValue(type, itemId, "totalStreams");
-        const defaultGain = getHistoricalValue(type, itemId, "dailyGain");
-        updated[type][itemId][selectedLogDate] = { totalStreams: defaultTotal, dailyGain: defaultGain };
-      }
-
-      updated[type][itemId][selectedLogDate][field] = value;
-
-      // Propagate: If selected date is today, also update live catalog state
-      const todayStr = new Date().toISOString().split("T")[0];
-      if (selectedLogDate === todayStr) {
-        if (type === "tracks") {
-          const updatedTracks = tracks.map(t => {
-            if (t.id === itemId) {
-              return { ...t, [field]: value };
-            }
-            return t;
-          });
-          setTracks(updatedTracks);
-          void saveAdminConfig(updatedTracks, albums);
-        } else {
-          const updatedAlbums = albums.map(a => {
-            if (a.id === itemId) {
-              return { ...a, [field]: value };
-            }
-            return a;
-          });
-          setAlbums(updatedAlbums);
-          void saveAdminConfig(tracks, updatedAlbums);
-        }
-      }
-
-      void dbOperations.saveHistoricalData(selectedLogDate, updated).catch((error) => {
-        console.error("Failed to save historical data:", error);
-      });
-
-      window.dispatchEvent(new Event("storage_admin_update"));
-      return updated;
-    });
   };
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
@@ -1432,26 +1357,6 @@ export default function AdminPanel() {
             </div>
           </div>
 
-          {/* HISTORICAL DATE SELECTOR */}
-          <div className="bg-wine-deep p-6 border border-panel-border rounded flex flex-col md:flex-row md:items-center justify-between gap-6 font-mono">
-            <div className="space-y-1">
-              <label className="block text-[10px] font-bold text-neutral-450 uppercase tracking-wider">
-                📅 {language === "pt" ? "selecionar data do histórico" : "select history date"}
-              </label>
-              <input
-                type="date"
-                value={selectedLogDate}
-                onChange={(e) => setSelectedLogDate(e.target.value)}
-                className="bg-neutral-900 border border-neutral-800 rounded p-2.5 text-xs text-white focus:outline-none w-full sm:w-56 cursor-pointer"
-              />
-            </div>
-            <p className="text-xs text-neutral-450 font-serif max-w-md leading-relaxed">
-              {language === "pt"
-                ? "selecione uma data específica para visualizar e editar os streams acumulados e ganhos diários de todas as faixas e álbuns naquele dia."
-                : "select a specific date to view and edit the cumulative streams and daily gains of all tracks and albums on that day."}
-            </p>
-          </div>
-
           {/* Tracks streams tables */}
           <div className="space-y-4">
             <h4 className="text-base font-bold text-white uppercase tracking-wider border-b border-panel-border pb-2">
@@ -1470,24 +1375,22 @@ export default function AdminPanel() {
                 </thead>
                 <tbody className="divide-y divide-panel-border/40">
                   {tracks.map((track, index) => {
-                    const totalVal = getHistoricalValue("tracks", track.id, "totalStreams");
-                    const gainVal = getHistoricalValue("tracks", track.id, "dailyGain");
                     return (
                       <tr key={track.id} className="hover:bg-wine-dark/20">
                         <td className="py-3 pr-4 font-semibold text-white truncate max-w-[150px]">{track.title}</td>
                         <td className="py-3">
                           <input
                             type="number"
-                            value={totalVal}
-                            onChange={(e) => handleHistoricalEdit("tracks", track.id, "totalStreams", parseInt(e.target.value) || 0)}
+                            value={track.totalStreams || 0}
+                            onChange={(e) => handleTrackChange(index, "totalStreams", parseInt(e.target.value) || 0)}
                             className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-28 focus:outline-none font-mono"
                           />
                         </td>
                         <td className="py-3">
                           <input
                             type="number"
-                            value={gainVal}
-                            onChange={(e) => handleHistoricalEdit("tracks", track.id, "dailyGain", parseInt(e.target.value) || 0)}
+                            value={track.dailyGain || 0}
+                            onChange={(e) => handleTrackChange(index, "dailyGain", parseInt(e.target.value) || 0)}
                             className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-24 focus:outline-none font-mono"
                           />
                         </td>
@@ -1532,8 +1435,6 @@ export default function AdminPanel() {
                 </thead>
                 <tbody className="divide-y divide-panel-border/40">
                   {albums.map((album, index) => {
-                    const totalVal = getHistoricalValue("albums", album.id, "totalStreams");
-                    const gainVal = getHistoricalValue("albums", album.id, "dailyGain");
                     return (
                       <tr key={album.id} className="hover:bg-wine-dark/20">
                         <td className="py-3 font-semibold text-white">{album.title}</td>
@@ -1541,16 +1442,16 @@ export default function AdminPanel() {
                         <td className="py-3">
                           <input
                             type="number"
-                            value={totalVal}
-                            onChange={(e) => handleHistoricalEdit("albums", album.id, "totalStreams", parseInt(e.target.value) || 0)}
+                            value={album.totalStreams || 0}
+                            onChange={(e) => handleAlbumChange(index, "totalStreams", parseInt(e.target.value) || 0)}
                             className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-32 focus:outline-none font-mono"
                           />
                         </td>
                         <td className="py-3">
                           <input
                             type="number"
-                            value={gainVal}
-                            onChange={(e) => handleHistoricalEdit("albums", album.id, "dailyGain", parseInt(e.target.value) || 0)}
+                            value={album.dailyGain || 0}
+                            onChange={(e) => handleAlbumChange(index, "dailyGain", parseInt(e.target.value) || 0)}
                             className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-28 focus:outline-none font-mono"
                           />
                         </td>

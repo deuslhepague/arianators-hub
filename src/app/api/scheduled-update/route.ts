@@ -118,15 +118,6 @@ export async function POST(req: Request) {
     yesterday.setUTCDate(yesterday.getUTCDate() - 1);
     const yesterdayDateStr = yesterday.toISOString().split('T')[0];
 
-    try {
-      const yesterdaySnap = await db.collection("historical").doc(yesterdayDateStr).get();
-      if (yesterdaySnap.exists) {
-        previousDayData = yesterdaySnap.data();
-      }
-    } catch (_) {
-      console.warn("Could not load yesterday's data from Firestore");
-    }
-
     // Map to cache track playcounts returned from album fetches
     const trackPlaycounts: Record<string, number> = {};
 
@@ -203,12 +194,12 @@ export async function POST(req: Request) {
             const oldPlaycount = album.totalStreams || 0;
             
             // Calculate daily gain based on yesterday's final total count
-            const yesterdayData = previousDayData?.albums?.[album.id];
-            const yesterdayTotal = yesterdayData?.totalStreams || 0;
+            const yesterdayEntry = album.streams?.[yesterdayDateStr];
+            const yesterdayTotal = yesterdayEntry?.total || 0;
 
-            const dailyGain = (yesterdayData !== undefined && albumSum !== yesterdayTotal)
+            const dailyGain = (yesterdayEntry !== undefined && albumSum !== yesterdayTotal)
               ? Math.max(0, albumSum - yesterdayTotal)
-              : (yesterdayData !== undefined ? (yesterdayData.dailyGain || album.dailyGain || 0) : Math.max(0, albumSum - oldPlaycount));
+              : (yesterdayEntry !== undefined ? (yesterdayEntry.daily || album.dailyGain || 0) : Math.max(0, albumSum - oldPlaycount));
 
             albumUpdates.push({
               id: album.id,
@@ -308,20 +299,20 @@ export async function POST(req: Request) {
         const oldPlaycount = track.totalStreams || 0;
 
         // Calculate daily gain based on yesterday's final total count
-        const yesterdayData = previousDayData?.tracks?.[track.id];
-        const yesterdayTotal = yesterdayData?.totalStreams || 0;
-        const yesterdayDailyGain = yesterdayData?.dailyGain || 0;
+        const yesterdayEntry = track.streams?.[yesterdayDateStr];
+        const yesterdayTotal = yesterdayEntry?.total || 0;
+        const yesterdayDailyGain = yesterdayEntry?.daily || 0;
 
         let dailyGain = 0;
         let gainDiff = track.gainDiff || 0;
 
-        if (yesterdayData !== undefined && newPlaycount !== yesterdayTotal) {
+        if (yesterdayEntry !== undefined && newPlaycount !== yesterdayTotal) {
           dailyGain = Math.max(0, newPlaycount - yesterdayTotal);
           gainDiff = dailyGain - yesterdayDailyGain;
-        } else if (yesterdayData !== undefined) {
+        } else if (yesterdayEntry !== undefined) {
           // Spotify has not updated yet, retain yesterday's gain and gainDiff
           dailyGain = yesterdayDailyGain || track.dailyGain || 0;
-          gainDiff = yesterdayData.gainDiff || track.gainDiff || 0;
+          gainDiff = track.gainDiff || 0;
         } else {
           dailyGain = Math.max(0, newPlaycount - oldPlaycount);
         }
@@ -365,36 +356,7 @@ export async function POST(req: Request) {
         albums,
         updatedAt: new Date().toISOString()
       });
-      
-      // Also save today's snapshot to historical data
-      const today = new Date().toISOString().split('T')[0];
-      const historicalSnapshot: any = {
-        date: today,
-        tracks: {},
-        albums: {}
-      };
-      
-      for (const track of tracks) {
-        historicalSnapshot.tracks[track.id] = {
-          totalStreams: track.totalStreams,
-          dailyGain: track.dailyGain,
-          gainDiff: track.gainDiff
-        };
-      }
 
-      for (const album of albums) {
-        historicalSnapshot.albums[album.id] = {
-          totalStreams: album.totalStreams,
-          dailyGain: album.dailyGain
-        };
-      }
-      
-      await db.collection("historical").doc(today).set({
-        date: today,
-        tracks: historicalSnapshot.tracks,
-        albums: historicalSnapshot.albums,
-        savedAt: new Date().toISOString()
-      });
 
       try {
         const syncUrl = new URL("/api/spotify-sync", req.url);

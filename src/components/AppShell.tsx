@@ -48,15 +48,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <span>{t("subtitle.tagline")}</span>
         </div>
         <div className="flex items-center gap-4">
-          {/* Data Removal Request Link */}
-          <Link
-            href="/remove-user"
-            className={`hover:text-rose transition-colors uppercase font-bold tracking-wider text-[10px] ${activeTab === "remove-user" ? "text-rose" : ""
-              }`}
-          >
-            {language === "pt" ? "remover dados" : "remove data"}
-          </Link>
-
           {isAuthLoading ? (
             <span className="animate-pulse pl-2 border-l border-panel-border">
               {t("auth.connecting")}
