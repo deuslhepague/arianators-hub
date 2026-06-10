@@ -61,7 +61,21 @@ export async function GET(req: Request) {
 
     const tracks = tracksSnap.docs.map(doc => doc.data());
     const albums = albumsSnap.docs.map(doc => doc.data());
-    const updatedAt = configSnap.exists ? configSnap.data()?.updatedAt : null;
+    let updatedAt = null;
+    if (configSnap.exists) {
+      const rawUpdatedAt = configSnap.data()?.updatedAt;
+      if (rawUpdatedAt) {
+        if (typeof rawUpdatedAt.toDate === "function") {
+          updatedAt = rawUpdatedAt.toDate().toISOString();
+        } else if (typeof rawUpdatedAt === "string") {
+          updatedAt = rawUpdatedAt;
+        } else if (rawUpdatedAt._seconds) {
+          updatedAt = new Date(rawUpdatedAt._seconds * 1000).toISOString();
+        } else {
+          updatedAt = new Date(rawUpdatedAt).toISOString();
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,

@@ -4,7 +4,6 @@ import React, { useState, useMemo } from "react";
 import { useSpotify } from "@/context/SpotifyContext";
 import { useTheme } from "@/context/ThemeContext";
 import { useLanguage } from "@/context/LanguageContext";
-import PreMadePlaylists from "@/components/PreMadePlaylists";
 
 import {
   getDaysToMilestone as getDaysUntilMilestone,
@@ -1121,9 +1120,6 @@ export default function StreamsPage() {
           </div>
         )}
       </div>
-
-      {/* PRE-MADE PLAYLISTS */}
-      <PreMadePlaylists />
 
       {/* MILESTONE PROGRESS MODAL POPUP */}
       {selectedTrack && (
