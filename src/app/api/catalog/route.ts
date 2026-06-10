@@ -43,17 +43,19 @@ export async function GET(req: Request) {
 
     const app = getAdminApp();
     const db = admin.firestore(app);
-    const snap = await db.collection("catalog").doc("config").get();
+    
+    const tracksSnap = await db.collection("catalog").doc("config").collection("tracks").get();
+    const albumsSnap = await db.collection("catalog").doc("config").collection("albums").get();
+    const configSnap = await db.collection("catalog").doc("config").get();
 
-    if (!snap.exists) {
-      return NextResponse.json({ success: true, tracks: [], albums: [], updatedAt: null });
-    }
+    const tracks = tracksSnap.docs.map(doc => doc.data());
+    const albums = albumsSnap.docs.map(doc => doc.data());
+    const updatedAt = configSnap.exists ? configSnap.data()?.updatedAt : null;
 
-    const data = snap.data();
     const payload = {
-      tracks: data?.tracks || [],
-      albums: data?.albums || [],
-      updatedAt: data?.updatedAt
+      tracks,
+      albums,
+      updatedAt
     };
 
     cachedCatalog = payload;

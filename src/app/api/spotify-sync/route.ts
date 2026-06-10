@@ -52,10 +52,8 @@ async function loadCatalogTracks(db: admin.firestore.Firestore): Promise<any[]> 
     return cachedCatalog;
   }
 
-  const snap = await db.collection("catalog").doc("config").get();
-  if (!snap.exists) return [];
-  const data = snap.data() || {};
-  cachedCatalog = data.tracks || [];
+  const snap = await db.collection("catalog").doc("config").collection("tracks").get();
+  cachedCatalog = snap.docs.map(doc => doc.data());
   cachedCatalogTimestamp = now;
   return cachedCatalog;
 }

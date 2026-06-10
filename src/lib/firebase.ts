@@ -220,42 +220,23 @@ export const dbOperations = {
   },
 
   async trackArianaSongStream(trackId: string, trackName: string, coverUrl: string, count: number) {
-    await postJson("/api/song-streams", { trackId, trackName, coverUrl, count });
+    // No-op: song-streams is deprecated
   },
 
   async getSongLeaderboard(date?: string, bypass = false): Promise<LeaderboardSong[]> {
-    const qs = date ? `?date=${encodeURIComponent(date)}` : "";
-    const bypassStr = bypass ? (qs ? "&bypass=true" : "?bypass=true") : "";
-    const response = await fetch(`/api/song-streams${qs}${bypassStr}`);
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || "Failed to load song leaderboard");
-    }
-
-    const data = await response.json();
-    return data.songs || [];
+    return [];
   },
 
   async getPendingValidations(): Promise<any[]> {
-    const response = await fetch("/api/song-streams?view=pending", {
-      headers: getAdminAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.error || "Failed to load pending validations");
-    }
-
-    const data = await response.json();
-    return data.requests || [];
+    return [];
   },
 
   async resolvePendingValidation(trackId: string, action: "merge" | "create" | "reject", targetSongId?: string) {
-    await patchJson("/api/song-streams", { trackId, action, targetSongId }, getAdminAuthHeaders());
+    // No-op: song-streams is deprecated
   },
 
   async clearSimulatedPlays() {
-    await deleteJson("/api/song-streams", {}, getAdminAuthHeaders());
+    // No-op: song-streams is deprecated
   },
 
   async requestUserDeletion(userId: string, displayName: string) {

@@ -81,12 +81,10 @@ export async function POST(req: Request) {
     let tracks: TrackData[] = [];
     let albums: AlbumData[] = [];
     try {
-      const catalogSnap = await db.collection("catalog").doc("config").get();
-      if (catalogSnap.exists) {
-        const catalogData = catalogSnap.data();
-        tracks = catalogData?.tracks || [];
-        albums = catalogData?.albums || [];
-      }
+      const tracksSnap = await db.collection("catalog").doc("config").collection("tracks").get();
+      const albumsSnap = await db.collection("catalog").doc("config").collection("albums").get();
+      tracks = tracksSnap.docs.map(doc => doc.data() as TrackData);
+      albums = albumsSnap.docs.map(doc => doc.data() as AlbumData);
     } catch (err) {
       console.error("Error loading catalog from Firestore:", err);
       return NextResponse.json(
@@ -352,11 +350,32 @@ export async function POST(req: Request) {
     // Save updated tracks and albums back to Firestore catalog config
     try {
       await db.collection("catalog").doc("config").set({
-        tracks,
-        albums,
         updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      const ops: { type: 'set', ref: admin.firestore.DocumentReference, data: any }[] = [];
+      tracks.forEach(track => {
+        if (track && track.id) {
+          const ref = db.collection("catalog").doc("config").collection("tracks").doc(track.id);
+          ops.push({ type: 'set', ref, data: track });
+        }
+      });
+      albums.forEach(album => {
+        if (album && album.id) {
+          const ref = db.collection("catalog").doc("config").collection("albums").doc(album.id);
+          ops.push({ type: 'set', ref, data: album });
+        }
       });
 
+      const CHUNK_SIZE = 400;
+      for (let i = 0; i < ops.length; i += CHUNK_SIZE) {
+        const chunk = ops.slice(i, i + CHUNK_SIZE);
+        const batch = db.batch();
+        chunk.forEach(op => {
+          batch.set(op.ref, op.data);
+        });
+        await batch.commit();
+      }
 
       try {
         const syncUrl = new URL("/api/spotify-sync", req.url);

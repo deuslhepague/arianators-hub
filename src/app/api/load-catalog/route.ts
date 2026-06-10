@@ -55,21 +55,19 @@ export async function GET(req: Request) {
     const app = getAdminApp();
     const db = admin.firestore(app);
 
-    const snap = await db.collection("catalog").doc("config").get();
+    const tracksSnap = await db.collection("catalog").doc("config").collection("tracks").get();
+    const albumsSnap = await db.collection("catalog").doc("config").collection("albums").get();
+    const configSnap = await db.collection("catalog").doc("config").get();
 
-    if (!snap.exists) {
-      return NextResponse.json(
-        { success: true, tracks: [], albums: [], message: "No catalog found" },
-        { status: 200 }
-      );
-    }
+    const tracks = tracksSnap.docs.map(doc => doc.data());
+    const albums = albumsSnap.docs.map(doc => doc.data());
+    const updatedAt = configSnap.exists ? configSnap.data()?.updatedAt : null;
 
-    const data = snap.data();
     return NextResponse.json({
       success: true,
-      tracks: data?.tracks || [],
-      albums: data?.albums || [],
-      updatedAt: data?.updatedAt
+      tracks,
+      albums,
+      updatedAt
     });
   } catch (error: any) {
     console.error("Error loading catalog:", error);
