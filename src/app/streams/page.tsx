@@ -37,6 +37,7 @@ interface TrackStat {
   avgDailyGain: number;
   alternativeIds?: string[];
   spotifyTrackId?: string;
+  spotifyAlbumId?: string;
   streams?: Record<string, { total: number; daily: number | null }>;
 }
 
@@ -47,7 +48,9 @@ interface AlbumStat {
   totalStreams: number;
   dailyGain: number;
   coverUrl: string;
+  spotifyAlbumId?: string;
   streams?: Record<string, { total: number; daily: number | null }>;
+  tracklist?: string[];
 }
 
 type StreamTab = "albums" | "tracks" | "milestones";
@@ -449,6 +452,17 @@ export default function StreamsPage() {
     selectedAlbumMilestone && selectedAlbum
       ? getMilestoneProgressPercent(selectedAlbum.totalStreams, selectedAlbumMilestone.milestoneTarget)
       : 0;
+
+  const albumTracks = useMemo(() => {
+    if (!selectedAlbum) return [];
+    if (selectedAlbum.tracklist && Array.isArray(selectedAlbum.tracklist)) {
+      return selectedAlbum.tracklist
+        .map((id) => tracks.find((t) => t.id === id || t.spotifyTrackId === id))
+        .filter((t): t is TrackStat => !!t);
+    }
+    const albumId = selectedAlbum.spotifyAlbumId || selectedAlbum.id;
+    return tracks.filter((t) => t.spotifyAlbumId === albumId);
+  }, [selectedAlbum, tracks]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -1285,6 +1299,51 @@ export default function StreamsPage() {
                   </span>
                 </div>
               </div>
+
+              {/* Album Tracklist */}
+              {albumTracks.length > 0 && (
+                <div className={`p-3.5 md:p-5 rounded border ${theme === "light" ? "bg-neutral-50 border-neutral-200" : "bg-wine-deep/40 border-panel-border"}`}>
+                  <h4 className={`text-[10px] md:text-xs font-bold uppercase tracking-wider mb-3 font-sans ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
+                    {language === "pt" ? "faixas do álbum" : "album tracks"} ({albumTracks.length})
+                  </h4>
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-neutral-800">
+                    {albumTracks.map((track, idx) => (
+                      <div
+                        key={track.id}
+                        onClick={() => {
+                          setSelectedAlbum(null);
+                          setSelectedTrack(track);
+                        }}
+                        className={`flex items-center justify-between p-2 rounded transition-all cursor-pointer border ${
+                          theme === "light"
+                            ? "hover:bg-neutral-100 border-transparent hover:border-neutral-200 text-neutral-900"
+                            : "hover:bg-wine-deep/60 border-transparent hover:border-panel-border text-rose"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className={`text-[10px] font-mono w-4 text-right ${theme === "light" ? "text-neutral-400" : "text-mauve/60"}`}>
+                            {idx + 1}
+                          </span>
+                          <img src={track.coverUrl} className="w-7 h-7 rounded object-cover" alt="" />
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold truncate">
+                              {track.title}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right font-mono text-[10px] flex items-center gap-3">
+                          <span>
+                            {formatNumber(track.totalStreams)} streams
+                          </span>
+                          <span className={`font-semibold ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
+                            +{formatNumber(track.dailyGain)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Interactive Stream Chart */}
               {selectedAlbum.streams && (

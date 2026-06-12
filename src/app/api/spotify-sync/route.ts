@@ -43,6 +43,32 @@ function cleanTrackTitle(title: string): string {
     .trim();
 }
 
+function areTitlesSimilar(dbTitle: string, spotifyTitle: string): boolean {
+  const cleanDb = cleanTrackTitle(dbTitle);
+  const cleanSp = cleanTrackTitle(spotifyTitle);
+
+  if (cleanDb === cleanSp) {
+    // Exact match: only allow if it is an intro
+    return cleanSp.includes("intro");
+  }
+
+  // Not exact match. Check if they are similar (parecidos).
+  if (cleanDb.includes(cleanSp) || cleanSp.includes(cleanDb)) {
+    return true;
+  }
+
+  const wordsDb = cleanDb.split(/\s+/).filter(w => w.length > 2);
+  const wordsSp = cleanSp.split(/\s+/).filter(w => w.length > 2);
+  if (wordsDb.length > 0 && wordsSp.length > 0) {
+    const intersection = wordsDb.filter(w => wordsSp.includes(w));
+    if (intersection.length >= Math.max(2, Math.min(wordsDb.length, wordsSp.length))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 let cachedCatalog: any[] = [];
 let cachedCatalogTimestamp = 0;
 
@@ -241,9 +267,9 @@ async function syncOneUser(db: admin.firestore.Firestore, userId: string) {
       const mainTrackId = directMatch.spotifyTrackId || directMatch.id;
       songStreamIncrementsByDate[dateStr][mainTrackId] = (songStreamIncrementsByDate[dateStr][mainTrackId] || 0) + 1;
     } else {
-      // Fallback matching by title
+      // Fallback matching: suggest merge ONLY for SIMILAR names (not exact matches, unless it is an intro)
       const titleMatch = catalogTracks.find((song: any) =>
-        cleanTrackTitle(song.title) === cleanTrackTitle(trackName)
+        areTitlesSimilar(song.title, trackName)
       );
 
       if (titleMatch) {

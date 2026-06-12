@@ -16,6 +16,7 @@ interface TrackData {
   dailyGain?: number;
   gainDiff?: number;
   streams?: StreamHistory;
+  alternativeIds?: string[];
 }
 
 interface AlbumData {
@@ -264,8 +265,23 @@ export async function POST(req: Request) {
         if (trackPlaycounts[track.spotifyTrackId]) {
           newPlaycount = trackPlaycounts[track.spotifyTrackId];
         } else {
-          // Fetch track data individually from Spotify Pathfinder
-          const pathfinderUrl = "https://api-partner.spotify.com/pathfinder/v2/query";
+          // Check if any alternative ID was fetched during album updates
+          let foundAlt = false;
+          if (track.alternativeIds) {
+            for (const altId of track.alternativeIds) {
+              if (trackPlaycounts[altId]) {
+                newPlaycount = trackPlaycounts[altId];
+                foundAlt = true;
+                break;
+              }
+            }
+          }
+
+          if (foundAlt) {
+            // Found in alternative IDs cache
+          } else {
+            // Fetch track data individually from Spotify Pathfinder
+            const pathfinderUrl = "https://api-partner.spotify.com/pathfinder/v2/query";
           const pathfinderRes = await fetchSpotify(pathfinderUrl, {
             method: "POST",
             headers: {
@@ -311,6 +327,7 @@ export async function POST(req: Request) {
           }
 
           newPlaycount = parseInt(trackUnion.playcount || "0", 10) || 0;
+          }
         }
 
         const oldPlaycount = track.totalStreams || 0;

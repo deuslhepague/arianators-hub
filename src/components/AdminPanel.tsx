@@ -603,10 +603,11 @@ export default function AdminPanel() {
             const existingTrack = updatedTracks[trackIndex];
             const newTotalStreams = newTrack.totalStreams || existingTrack.totalStreams;
             
-            const mergedAlternativeIds = Array.from(new Set([
-              ...(existingTrack.alternativeIds || []),
-              ...(newTrack.alternativeIds || [])
-            ]));
+            const incomingIds = [newTrack.spotifyTrackId, ...(newTrack.alternativeIds || [])].filter(Boolean);
+            const currentIds = [existingTrack.spotifyTrackId, ...(existingTrack.alternativeIds || [])].filter(Boolean);
+            const primarySpotifyTrackId = existingTrack.spotifyTrackId || newTrack.spotifyTrackId;
+            const allUniqueIds = Array.from(new Set([...currentIds, ...incomingIds]));
+            const mergedAlternativeIds = allUniqueIds.filter(id => id !== primarySpotifyTrackId);
 
             const mergedStreams = (newTotalStreams !== existingTrack.totalStreams || !existingTrack.streams)
               ? addStreamHistoryEntry(existingTrack.streams, today, newTotalStreams, existingTrack.totalStreams)
@@ -627,8 +628,8 @@ export default function AdminPanel() {
               coverUrl: newTrack.coverUrl || existingTrack.coverUrl,
               milestoneName: newTrack.milestoneName || existingTrack.milestoneName,
               milestoneTarget: newTrack.milestoneTarget || existingTrack.milestoneTarget,
-              spotifyTrackId: newTrack.spotifyTrackId || existingTrack.spotifyTrackId,
-              spotifyAlbumId: newTrack.spotifyAlbumId || existingTrack.spotifyAlbumId,
+              spotifyTrackId: primarySpotifyTrackId,
+              spotifyAlbumId: existingTrack.spotifyAlbumId || newTrack.spotifyAlbumId,
               totalStreams: newTotalStreams,
               dailyGain: newDailyGain,
               gainDiff: newGainDiff,
@@ -692,10 +693,11 @@ export default function AdminPanel() {
           const existingTrack = updatedTracks[trackIndex];
           const newTotalStreams = newTrack.totalStreams || existingTrack.totalStreams;
 
-          const mergedAlternativeIds = Array.from(new Set([
-            ...(existingTrack.alternativeIds || []),
-            ...(newTrack.alternativeIds || [])
-          ]));
+          const incomingIds = [newTrack.spotifyTrackId, ...(newTrack.alternativeIds || [])].filter(Boolean);
+          const currentIds = [existingTrack.spotifyTrackId, ...(existingTrack.alternativeIds || [])].filter(Boolean);
+          const primarySpotifyTrackId = existingTrack.spotifyTrackId || newTrack.spotifyTrackId;
+          const allUniqueIds = Array.from(new Set([...currentIds, ...incomingIds]));
+          const mergedAlternativeIds = allUniqueIds.filter(id => id !== primarySpotifyTrackId);
 
           const mergedStreams = (newTotalStreams !== existingTrack.totalStreams || !existingTrack.streams)
             ? addStreamHistoryEntry(existingTrack.streams, today, newTotalStreams, existingTrack.totalStreams)
@@ -716,8 +718,8 @@ export default function AdminPanel() {
             coverUrl: newTrack.coverUrl || existingTrack.coverUrl,
             milestoneName: newTrack.milestoneName || existingTrack.milestoneName,
             milestoneTarget: newTrack.milestoneTarget || existingTrack.milestoneTarget,
-            spotifyTrackId: newTrack.spotifyTrackId || existingTrack.spotifyTrackId,
-            spotifyAlbumId: newTrack.spotifyAlbumId || existingTrack.spotifyAlbumId,
+            spotifyTrackId: primarySpotifyTrackId,
+            spotifyAlbumId: existingTrack.spotifyAlbumId || newTrack.spotifyAlbumId,
             totalStreams: newTotalStreams,
             dailyGain: newDailyGain,
             gainDiff: newGainDiff,
