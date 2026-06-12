@@ -191,8 +191,28 @@ export async function POST(req: Request) {
           if (albumSum > 0) {
             const oldPlaycount = album.totalStreams || 0;
             
-            // Calculate daily gain based on yesterday's final total count
-            const yesterdayEntry = album.streams?.[yesterdayDateStr];
+            // Determine target update date and reference date for comparison
+            const today = getTodayDateStr();
+            let targetDate = today;
+            let refDateStr = yesterdayDateStr;
+            const previousHistory = album.streams;
+            if (previousHistory && Object.keys(previousHistory).length > 0) {
+              const sortedDates = Object.keys(previousHistory).sort();
+              const lastDateStr = sortedDates[sortedDates.length - 1];
+              const parts = lastDateStr.split("-").map(Number);
+              if (parts.length === 3) {
+                const dateObj = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+                dateObj.setUTCDate(dateObj.getUTCDate() + 1);
+                const nextDateStr = dateObj.toISOString().split("T")[0];
+                if (nextDateStr <= today) {
+                  targetDate = nextDateStr;
+                  refDateStr = lastDateStr;
+                }
+              }
+            }
+
+            // Calculate daily gain based on reference date's final total count
+            const yesterdayEntry = album.streams?.[refDateStr];
             const yesterdayTotal = yesterdayEntry?.total || 0;
 
             const dailyGain = (yesterdayEntry !== undefined && albumSum !== yesterdayTotal)
@@ -211,11 +231,10 @@ export async function POST(req: Request) {
             album.totalStreams = albumSum;
             album.dailyGain = dailyGain;
 
-            // Add stream history entry for today
-            const today = getTodayDateStr();
+            // Add stream history entry for the calculated target date
             album.streams = addStreamHistoryEntry(
               album.streams,
-              today,
+              targetDate,
               albumSum,
               yesterdayTotal || oldPlaycount
             );
@@ -296,8 +315,28 @@ export async function POST(req: Request) {
 
         const oldPlaycount = track.totalStreams || 0;
 
-        // Calculate daily gain based on yesterday's final total count
-        const yesterdayEntry = track.streams?.[yesterdayDateStr];
+        // Determine target update date and reference date for comparison
+        const today = getTodayDateStr();
+        let targetDate = today;
+        let refDateStr = yesterdayDateStr;
+        const previousHistory = track.streams;
+        if (previousHistory && Object.keys(previousHistory).length > 0) {
+          const sortedDates = Object.keys(previousHistory).sort();
+          const lastDateStr = sortedDates[sortedDates.length - 1];
+          const parts = lastDateStr.split("-").map(Number);
+          if (parts.length === 3) {
+            const dateObj = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+            dateObj.setUTCDate(dateObj.getUTCDate() + 1);
+            const nextDateStr = dateObj.toISOString().split("T")[0];
+            if (nextDateStr <= today) {
+              targetDate = nextDateStr;
+              refDateStr = lastDateStr;
+            }
+          }
+        }
+
+        // Calculate daily gain based on reference date's final total count
+        const yesterdayEntry = track.streams?.[refDateStr];
         const yesterdayTotal = yesterdayEntry?.total || 0;
         const yesterdayDailyGain = yesterdayEntry?.daily || 0;
 
@@ -330,11 +369,10 @@ export async function POST(req: Request) {
         track.dailyGain = dailyGain;
         track.gainDiff = gainDiff;
 
-        // Add stream history entry for today
-        const today = getTodayDateStr();
+        // Add stream history entry for the calculated target date
         track.streams = addStreamHistoryEntry(
           track.streams,
-          today,
+          targetDate,
           newPlaycount,
           yesterdayTotal || oldPlaycount
         );

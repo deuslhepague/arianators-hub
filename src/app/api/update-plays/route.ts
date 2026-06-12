@@ -4,6 +4,24 @@ import { addStreamHistoryEntry, getTodayDateStr, StreamHistory } from "@/lib/str
 
 export const dynamic = "force-dynamic";
 
+function getTargetUpdateDate(previousHistory: StreamHistory | undefined, todayStr: string): string {
+  if (!previousHistory) return todayStr;
+  const dates = Object.keys(previousHistory).sort();
+  if (dates.length === 0) return todayStr;
+  const lastDateStr = dates[dates.length - 1];
+  const parts = lastDateStr.split("-").map(Number);
+  if (parts.length === 3) {
+    const dateObj = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+    dateObj.setUTCDate(dateObj.getUTCDate() + 1);
+    const nextDateStr = dateObj.toISOString().split("T")[0];
+    if (nextDateStr <= todayStr) {
+      return nextDateStr;
+    }
+  }
+  return todayStr;
+}
+
+
 interface SpotifyTrackInput {
   id: string;
   title: string;
@@ -234,9 +252,10 @@ export async function POST(req: Request) {
           track.gainDiff = 0;
         }
         track.totalStreams = totalNewStreams;
+        const targetDate = getTargetUpdateDate(previousHistory, today);
         track.streams = addStreamHistoryEntry(
           previousHistory,
-          today,
+          targetDate,
           totalNewStreams,
           previousTotalStreams
         );
@@ -257,9 +276,10 @@ export async function POST(req: Request) {
           album.dailyGain = diff;
         }
         album.totalStreams = newTotal;
+        const targetDate = getTargetUpdateDate(previousHistory, today);
         album.streams = addStreamHistoryEntry(
           previousHistory,
-          today,
+          targetDate,
           newTotal,
           previousTotalStreams
         );

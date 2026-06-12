@@ -19,7 +19,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "arianators hub | Spotify Streams Tracker for Ariana Grande",
-  description: "Track your daily streams, generate optimized filler playlists, and monitor rankings on the global leaderboard to support Ariana Grande's era.",
+  description: "Track your streams, generate optimized filler playlists, and monitor rankings on the global leaderboard to support Ariana Grande's era.",
 };
 
 export default function RootLayout({
