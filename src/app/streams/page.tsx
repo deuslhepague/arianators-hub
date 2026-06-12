@@ -1314,31 +1314,41 @@ export default function StreamsPage() {
                           setSelectedAlbum(null);
                           setSelectedTrack(track);
                         }}
-                        className={`flex items-center justify-between p-2 rounded transition-all cursor-pointer border ${
+                        className={`grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-2.5 items-center p-2 rounded transition-all cursor-pointer border ${
                           theme === "light"
                             ? "hover:bg-neutral-100 border-transparent hover:border-neutral-200 text-neutral-900"
                             : "hover:bg-wine-deep/60 border-transparent hover:border-panel-border text-rose"
                         }`}
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span className={`text-[10px] font-mono w-4 text-right ${theme === "light" ? "text-neutral-400" : "text-mauve/60"}`}>
-                            {idx + 1}
-                          </span>
-                          <img src={track.coverUrl} className="w-7 h-7 rounded object-cover" alt="" />
-                          <div className="min-w-0">
-                            <p className="text-xs font-bold truncate">
-                              {track.title}
-                            </p>
-                          </div>
+                        <span className={`text-[10px] font-mono w-4 text-right ${theme === "light" ? "text-neutral-400" : "text-mauve/60"}`}>
+                          {idx + 1}
+                        </span>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <img src={track.coverUrl} className="w-7 h-7 rounded object-cover flex-shrink-0" alt="" />
+                          <p className="text-xs font-bold truncate">
+                            {track.title}
+                          </p>
                         </div>
-                        <div className="text-right font-mono text-[10px] flex items-center gap-3">
-                          <span>
-                            {formatNumber(track.totalStreams)} streams
-                          </span>
-                          <span className={`font-semibold ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
-                            +{formatNumber(track.dailyGain)}
-                          </span>
-                        </div>
+                        <span className="font-mono text-[10px] w-20 sm:w-24 text-right">
+                          {formatNumber(track.totalStreams)}
+                        </span>
+                        <span className={`font-mono text-[10px] w-16 sm:w-20 text-right font-semibold ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
+                          +{formatNumber(track.dailyGain)}
+                        </span>
+                        <span className="font-mono text-[9px] w-14 sm:w-16 text-right font-bold flex items-center justify-end">
+                          {(() => {
+                            const gainDisplay = getTrackGainDisplay(track, language);
+                            if (!gainDisplay || gainDisplay.diff === 0) {
+                              return <span className={theme === "light" ? "text-neutral-400" : "text-mauve/40"}>—</span>;
+                            }
+                            return (
+                              <span className={`flex items-center gap-0.5 ${gainDisplay.isUp ? "text-green-500" : "text-red-400"}`}>
+                                <span>{gainDisplay.isUp ? "▲" : "▼"}</span>
+                                <span>{gainDisplay.pctStr}%</span>
+                              </span>
+                            );
+                          })()}
+                        </span>
                       </div>
                     ))}
                   </div>
