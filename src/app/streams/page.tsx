@@ -39,6 +39,8 @@ interface TrackStat {
   spotifyTrackId?: string;
   spotifyAlbumId?: string;
   streams?: Record<string, { total: number; daily: number | null }>;
+  rank?: number;
+  rankShift?: number | null;
 }
 
 interface AlbumStat {
@@ -51,6 +53,8 @@ interface AlbumStat {
   spotifyAlbumId?: string;
   streams?: Record<string, { total: number; daily: number | null }>;
   tracklist?: string[];
+  rank?: number;
+  rankShift?: number | null;
 }
 
 type StreamTab = "albums" | "tracks" | "milestones";
@@ -131,6 +135,12 @@ const getAlbumGainDisplay = (album: AlbumStat, language: string) => {
 };
 
 const SURPASSED_TARGETS = [
+  { value: 100_000, label: "100k" },
+  { value: 500_000, label: "500k" },
+  { value: 1_000_000, label: "1M" },
+  { value: 5_000_000, label: "5M" },
+  { value: 10_000_000, label: "10M" },
+  { value: 20_000_000, label: "20M" },
   { value: 50_000_000, label: "50M" },
   { value: 100_000_000, label: "100M" },
   { value: 150_000_000, label: "150M" },
@@ -198,6 +208,19 @@ export default function StreamsPage() {
   const [albumSortBy, setAlbumSortBy] = useState<"daily" | "total" | "year" | "pct">("total");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+
+  // Visible item counts (10 by default)
+  const [visibleTracksCount, setVisibleTracksCount] = useState(10);
+  const [visibleAlbumsCount, setVisibleAlbumsCount] = useState(10);
+
+  // Reset visible counts when search query, sorting, or tab changes
+  React.useEffect(() => {
+    setVisibleTracksCount(10);
+  }, [searchQuery, sortBy, sortDirection, streamTab]);
+
+  React.useEffect(() => {
+    setVisibleAlbumsCount(10);
+  }, [searchQuery, albumSortBy, sortDirection, streamTab]);
 
   // Selected Track for Milestones Modal
   const [selectedTrack, setSelectedTrack] = useState<TrackStat | null>(null);
@@ -339,15 +362,9 @@ export default function StreamsPage() {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   };
 
-  const processedTracks = useMemo(() => {
-    let result = [...tracks];
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (t) => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q)
-      );
-    }
-    result.sort((a, b) => {
+  const rankedTracks = useMemo(() => {
+    const todaySorted = [...tracks];
+    todaySorted.sort((a, b) => {
       let valA = 0;
       let valB = 0;
       if (sortBy === "daily") {
@@ -364,16 +381,77 @@ export default function StreamsPage() {
       }
       return sortDirection === "desc" ? valB - valA : valA - valB;
     });
-    return result;
-  }, [tracks, searchQuery, sortBy, sortDirection, language]);
 
-  const processedAlbums = useMemo(() => {
-    let result = [...albums];
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter((a) => a.title.toLowerCase().includes(q));
+    const allDates = new Set<string>();
+    tracks.forEach(t => {
+      if (t.streams) {
+        Object.keys(t.streams).forEach(d => allDates.add(d));
+      }
+    });
+    const sortedDates = Array.from(allDates).sort();
+
+    let yesterdaySorted: TrackStat[] = [];
+    let hasHistory = false;
+    if (sortedDates.length >= 2) {
+      hasHistory = true;
+      const prevDate = sortedDates[sortedDates.length - 2];
+      const prevPrevDate = sortedDates.length >= 3 ? sortedDates[sortedDates.length - 3] : null;
+
+      yesterdaySorted = [...tracks];
+      yesterdaySorted.sort((a, b) => {
+        let valA = 0;
+        let valB = 0;
+        if (sortBy === "daily") {
+          valA = a.streams?.[prevDate]?.daily ?? 0;
+          valB = b.streams?.[prevDate]?.daily ?? 0;
+        } else if (sortBy === "pct") {
+          if (prevPrevDate) {
+            const gainA = a.streams?.[prevDate]?.daily ?? 0;
+            const prevA = a.streams?.[prevPrevDate]?.daily ?? 0;
+            const pctA = prevA > 0 ? ((gainA - prevA) / prevA) * 100 : 0;
+
+            const gainB = b.streams?.[prevDate]?.daily ?? 0;
+            const prevB = b.streams?.[prevPrevDate]?.daily ?? 0;
+            const pctB = prevB > 0 ? ((gainB - prevB) / prevB) * 100 : 0;
+
+            valA = pctA;
+            valB = pctB;
+          } else {
+            valA = 0;
+            valB = 0;
+          }
+        } else {
+          valA = a.streams?.[prevDate]?.total ?? 0;
+          valB = b.streams?.[prevDate]?.total ?? 0;
+        }
+        return sortDirection === "desc" ? valB - valA : valA - valB;
+      });
     }
-    result.sort((a, b) => {
+
+    return todaySorted.map((track, todayIdx) => {
+      const todayRank = todayIdx + 1;
+      let yesterdayRank = null;
+      let rankShift = null;
+
+      if (hasHistory) {
+        const yesterdayIdx = yesterdaySorted.findIndex(t => t.id === track.id);
+        if (yesterdayIdx !== -1) {
+          yesterdayRank = yesterdayIdx + 1;
+          rankShift = yesterdayRank - todayRank;
+        }
+      }
+
+      return {
+        ...track,
+        rank: todayRank,
+        rankShift
+      };
+    });
+  }, [tracks, sortBy, sortDirection, language]);
+
+  const rankedAlbums = useMemo(() => {
+    const todaySorted = [...albums];
+    todaySorted.sort((a, b) => {
       let valA = 0;
       let valB = 0;
       if (albumSortBy === "daily") {
@@ -393,8 +471,96 @@ export default function StreamsPage() {
       }
       return sortDirection === "desc" ? valB - valA : valA - valB;
     });
+
+    const allDates = new Set<string>();
+    albums.forEach(a => {
+      if (a.streams) {
+        Object.keys(a.streams).forEach(d => allDates.add(d));
+      }
+    });
+    const sortedDates = Array.from(allDates).sort();
+
+    let yesterdaySorted: AlbumStat[] = [];
+    let hasHistory = false;
+    if (sortedDates.length >= 2) {
+      hasHistory = true;
+      const prevDate = sortedDates[sortedDates.length - 2];
+      const prevPrevDate = sortedDates.length >= 3 ? sortedDates[sortedDates.length - 3] : null;
+
+      yesterdaySorted = [...albums];
+      yesterdaySorted.sort((a, b) => {
+        let valA = 0;
+        let valB = 0;
+        if (albumSortBy === "daily") {
+          valA = a.streams?.[prevDate]?.daily ?? 0;
+          valB = b.streams?.[prevDate]?.daily ?? 0;
+        } else if (albumSortBy === "year") {
+          valA = parseInt(a.year, 10) || 0;
+          valB = parseInt(b.year, 10) || 0;
+        } else if (albumSortBy === "pct") {
+          if (prevPrevDate) {
+            const gainA = a.streams?.[prevDate]?.daily ?? 0;
+            const prevA = a.streams?.[prevPrevDate]?.daily ?? 0;
+            const pctA = prevA > 0 ? ((gainA - prevA) / prevA) * 100 : 0;
+
+            const gainB = b.streams?.[prevDate]?.daily ?? 0;
+            const prevB = b.streams?.[prevPrevDate]?.daily ?? 0;
+            const pctB = prevB > 0 ? ((gainB - prevB) / prevB) * 100 : 0;
+
+            valA = pctA;
+            valB = pctB;
+          } else {
+            valA = 0;
+            valB = 0;
+          }
+        } else {
+          valA = a.streams?.[prevDate]?.total ?? 0;
+          valB = b.streams?.[prevDate]?.total ?? 0;
+        }
+        return sortDirection === "desc" ? valB - valA : valA - valB;
+      });
+    }
+
+    return todaySorted.map((album, todayIdx) => {
+      const todayRank = todayIdx + 1;
+      let yesterdayRank = null;
+      let rankShift = null;
+
+      if (hasHistory) {
+        const yesterdayIdx = yesterdaySorted.findIndex(a => a.id === album.id);
+        if (yesterdayIdx !== -1) {
+          yesterdayRank = yesterdayIdx + 1;
+          rankShift = yesterdayRank - todayRank;
+        }
+      }
+
+      return {
+        ...album,
+        rank: todayRank,
+        rankShift
+      };
+    });
+  }, [albums, albumSortBy, sortDirection, language]);
+
+  const processedTracks = useMemo(() => {
+    let result = [...rankedTracks];
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (t) => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q)
+      );
+    }
     return result;
-  }, [albums, searchQuery, albumSortBy, sortDirection, language]);
+  }, [rankedTracks, searchQuery]);
+
+  const processedAlbums = useMemo(() => {
+    let result = [...rankedAlbums];
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((a) => a.title.toLowerCase().includes(q));
+    }
+    return result;
+  }, [rankedAlbums, searchQuery]);
 
   const getMilestoneDate = (days: number) => {
     const date = new Date();
@@ -500,8 +666,14 @@ export default function StreamsPage() {
             {/* Change */}
             {globalStats.globalChange && (
               <div className="flex items-center gap-2 mt-0.5">
-                <span className={`text-xs font-mono font-bold ${globalStats.globalChange.isUp ? "text-emerald-500" : "text-rose-hover"}`}>
-                  {globalStats.globalChange.isUp ? "+" : ""}{formatNumber(globalStats.globalChange.diff)} ({globalStats.globalChange.isUp ? "+" : ""}{globalStats.globalChange.pctStr}%)
+                <span className={`text-xs font-mono font-bold ${
+                  globalStats.globalChange.diff > 0 
+                    ? "text-emerald-500" 
+                    : globalStats.globalChange.diff < 0 
+                    ? "text-red-500" 
+                    : "text-mauve"
+                }`}>
+                  {globalStats.globalChange.diff > 0 ? "+" : ""}{formatNumber(globalStats.globalChange.diff)} ({globalStats.globalChange.diff > 0 ? "+" : (globalStats.globalChange.diff < 0 ? "-" : "")}{globalStats.globalChange.pctStr}%)
                 </span>
                 <span className="text-[10px] text-mauve font-serif lowercase">
                   {language === "pt" ? "vs. ontem" : "vs. yesterday"}
@@ -886,7 +1058,13 @@ export default function StreamsPage() {
         {streamTab === "tracks" && (
           <div className="space-y-2">
             <div className={`flex justify-between text-[10px] font-bold uppercase tracking-wider px-4 pb-3 border-b ${theme === "light" ? "text-neutral-500 border-neutral-200" : "text-neutral-500 border-neutral-900/60"}`}>
-              <span>{language === "pt" ? "música" : "track"}</span>
+              <div className="flex items-center gap-4">
+                <div className="w-16 sm:w-20 flex items-center gap-2 flex-shrink-0">
+                  <span className="w-6 text-right">#</span>
+                  <span className="w-10 text-center">▲▼</span>
+                </div>
+                <span>{language === "pt" ? "música" : "track"}</span>
+              </div>
               <span className="text-right">{language === "pt" ? "streams / ganho (dif)" : "streams / gain (diff)"}</span>
             </div>
 
@@ -895,47 +1073,95 @@ export default function StreamsPage() {
                 {language === "pt" ? "nenhuma música encontrada." : "no tracks match your search."}
               </div>
             ) : (
-              processedTracks.map((track) => (
-                <div
-                  key={track.id}
-                  onClick={() => setSelectedTrack(track)}
-                  className={`flex items-center justify-between p-4 rounded border transition-all cursor-pointer group ${theme === "light" ? "border-transparent hover:border-neutral-300 hover:bg-neutral-50" : "border-transparent hover:border-neutral-800 hover:bg-neutral-950/60"}`}
-                >
-                  <div className="flex items-center gap-4">
-                    <img
-                      src={track.coverUrl}
-                      alt={track.title}
-                      className={`w-14 h-14 rounded object-cover border ${theme === "light" ? "border-neutral-200" : "border-neutral-900"}`}
-                    />
-                    <div>
-                      <span className={`text-base md:text-lg font-bold block leading-tight group-hover:underline ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
-                        {track.title}
-                      </span>
-                      <span className={`text-xs block mt-1 ${theme === "light" ? "text-neutral-600" : "text-neutral-400"}`}>{track.artist}</span>
-                    </div>
-                  </div>
+              <>
+                {processedTracks.slice(0, visibleTracksCount).map((track) => (
+                  <div
+                    key={track.id}
+                    onClick={() => setSelectedTrack(track)}
+                    className={`flex items-center justify-between p-4 rounded border transition-all cursor-pointer group ${theme === "light" ? "border-transparent hover:border-neutral-300 hover:bg-neutral-50" : "border-transparent hover:border-neutral-800 hover:bg-neutral-950/60"}`}
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      {/* Rank and Shift column */}
+                      <div className="flex items-center gap-2.5 w-16 sm:w-20 flex-shrink-0">
+                        <span className={`text-sm md:text-base font-extrabold w-6 text-right ${theme === "light" ? "text-neutral-955" : "text-white"}`}>
+                          {track.rank}
+                        </span>
+                        
+                        <div className="w-10 flex justify-center">
+                          {track.rankShift === null || track.rankShift === 0 ? (
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                              theme === "light" ? "bg-neutral-100 text-neutral-400" : "bg-neutral-900/60 text-neutral-500 border border-neutral-850"
+                            }`}>
+                              —
+                            </span>
+                          ) : track.rankShift > 0 ? (
+                            <span className={`h-6 px-1.5 rounded-full flex items-center justify-center gap-0.5 text-[9px] font-bold ${
+                              theme === "light" ? "bg-emerald-50 text-emerald-600" : "bg-emerald-950/40 text-emerald-400 border border-emerald-900/30"
+                            }`}>
+                              ▲{track.rankShift}
+                            </span>
+                          ) : (
+                            <span className={`h-6 px-1.5 rounded-full flex items-center justify-center gap-0.5 text-[9px] font-bold ${
+                              theme === "light" ? "bg-red-50 text-red-650" : "bg-red-950/40 text-red-400 border border-red-900/30"
+                            }`}>
+                              ▼{Math.abs(track.rankShift)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
-                  <div className="text-right font-mono">
-                    <span className={`text-base md:text-lg font-bold block ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
-                      {formatNumber(track.totalStreams)}
-                    </span>
-                    <div className="flex items-center justify-end gap-2 mt-1">
-                      <span className={`text-xs font-semibold ${theme === "light" ? "text-neutral-700" : "text-neutral-300"}`}>
-                        +{formatNumber(track.dailyGain)}
+                      <img
+                        src={track.coverUrl}
+                        alt={track.title}
+                        className={`w-14 h-14 rounded object-cover border flex-shrink-0 ${theme === "light" ? "border-neutral-200" : "border-neutral-900"}`}
+                      />
+                      <div className="min-w-0">
+                        <span className={`text-base md:text-lg font-bold block leading-tight group-hover:underline truncate ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
+                          {track.title}
+                        </span>
+                        <span className={`text-xs block mt-1 truncate ${theme === "light" ? "text-neutral-600" : "text-neutral-400"}`}>{track.artist}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-right font-mono flex-shrink-0">
+                      <span className={`text-base md:text-lg font-bold block ${theme === "light" ? "text-neutral-955" : "text-white"}`}>
+                        {formatNumber(track.totalStreams)}
                       </span>
-                      {(() => {
-                        const gainDisplay = getTrackGainDisplay(track, language);
-                        if (!gainDisplay || gainDisplay.diff === 0) return null;
-                        return (
-                          <span className={`text-[10px] font-semibold flex items-center ${gainDisplay.isUp ? "text-green-500" : "text-red-400"}`}>
-                            {gainDisplay.isUp ? "▲" : "▼"} {gainDisplay.pctStr}%
-                          </span>
-                        );
-                      })()}
+                      <div className="flex items-center justify-end gap-2 mt-1">
+                        <span className={`text-xs font-semibold ${theme === "light" ? "text-neutral-700" : "text-neutral-300"}`}>
+                          +{formatNumber(track.dailyGain)}
+                        </span>
+                        {(() => {
+                          const gainDisplay = getTrackGainDisplay(track, language);
+                          if (!gainDisplay || gainDisplay.diff === 0) return null;
+                          return (
+                            <span className={`text-[10px] font-semibold flex items-center ${gainDisplay.isUp ? "text-green-500" : "text-red-400"}`}>
+                              {gainDisplay.isUp ? "▲" : "▼"} {gainDisplay.pctStr}%
+                            </span>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                ))}
+
+                {processedTracks.length > visibleTracksCount && (
+                  <div className="flex justify-center mt-6">
+                    <button
+                      onClick={() => setVisibleTracksCount(processedTracks.length)}
+                      className={`px-8 py-3 rounded-full border text-xs font-bold transition-all cursor-pointer ${
+                        theme === "light"
+                          ? "border-neutral-300 hover:border-black text-neutral-800 hover:bg-neutral-50"
+                          : "border-panel-border/30 hover:border-rose text-mauve hover:text-white bg-wine-deep/10 hover:bg-wine-deep/20"
+                      }`}
+                    >
+                      {language === "pt"
+                        ? `Ver mais (${processedTracks.length - visibleTracksCount} mais)`
+                        : `See more (${processedTracks.length - visibleTracksCount} more)`}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -944,7 +1170,13 @@ export default function StreamsPage() {
         {streamTab === "albums" && (
           <div className="space-y-2">
             <div className={`flex justify-between text-[10px] font-bold uppercase tracking-wider px-4 pb-3 border-b ${theme === "light" ? "text-neutral-500 border-neutral-200" : "text-neutral-500 border-neutral-900/60"}`}>
-              <span>{language === "pt" ? "álbum" : "album"}</span>
+              <div className="flex items-center gap-4">
+                <div className="w-16 sm:w-20 flex items-center gap-2 flex-shrink-0">
+                  <span className="w-6 text-right">#</span>
+                  <span className="w-10 text-center">▲▼</span>
+                </div>
+                <span>{language === "pt" ? "álbum" : "album"}</span>
+              </div>
               <span className="text-right">{language === "pt" ? "streams / ganho (dif)" : "streams / gain (diff)"}</span>
             </div>
 
@@ -953,47 +1185,95 @@ export default function StreamsPage() {
                 {language === "pt" ? "nenhum álbum encontrado." : "no albums match your search."}
               </div>
             ) : (
-              processedAlbums.map((album) => (
-                <div
-                  key={album.id}
-                  onClick={() => setSelectedAlbum(album)}
-                  className={`flex items-center justify-between p-4 rounded border transition-all cursor-pointer group ${theme === "light" ? "border-transparent hover:border-neutral-300 hover:bg-neutral-50" : "border-transparent hover:border-neutral-800 hover:bg-neutral-950/60"}`}
-                >
-                  <div className="flex items-center gap-4">
-                    <img
-                      src={album.coverUrl}
-                      alt={album.title}
-                      className={`w-14 h-14 rounded object-cover border ${theme === "light" ? "border-neutral-200" : "border-neutral-900"}`}
-                    />
-                    <div>
-                      <span className={`text-base md:text-lg font-bold block leading-tight group-hover:underline ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
-                        {album.title}
-                      </span>
-                      <span className={`text-xs block mt-1 ${theme === "light" ? "text-neutral-600" : "text-neutral-400"}`}>{album.year}</span>
-                    </div>
-                  </div>
+              <>
+                {processedAlbums.slice(0, visibleAlbumsCount).map((album) => (
+                  <div
+                    key={album.id}
+                    onClick={() => setSelectedAlbum(album)}
+                    className={`flex items-center justify-between p-4 rounded border transition-all cursor-pointer group ${theme === "light" ? "border-transparent hover:border-neutral-300 hover:bg-neutral-50" : "border-transparent hover:border-neutral-800 hover:bg-neutral-950/60"}`}
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      {/* Rank and Shift column */}
+                      <div className="flex items-center gap-2.5 w-16 sm:w-20 flex-shrink-0">
+                        <span className={`text-sm md:text-base font-extrabold w-6 text-right ${theme === "light" ? "text-neutral-955" : "text-white"}`}>
+                          {album.rank}
+                        </span>
+                        
+                        <div className="w-10 flex justify-center">
+                          {album.rankShift === null || album.rankShift === 0 ? (
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                              theme === "light" ? "bg-neutral-100 text-neutral-400" : "bg-neutral-900/60 text-neutral-500 border border-neutral-850"
+                            }`}>
+                              —
+                            </span>
+                          ) : album.rankShift > 0 ? (
+                            <span className={`h-6 px-1.5 rounded-full flex items-center justify-center gap-0.5 text-[9px] font-bold ${
+                              theme === "light" ? "bg-emerald-50 text-emerald-600" : "bg-emerald-950/40 text-emerald-400 border border-emerald-900/30"
+                            }`}>
+                              ▲{album.rankShift}
+                            </span>
+                          ) : (
+                            <span className={`h-6 px-1.5 rounded-full flex items-center justify-center gap-0.5 text-[9px] font-bold ${
+                              theme === "light" ? "bg-red-55 text-red-600" : "bg-red-950/40 text-red-400 border border-red-900/30"
+                            }`}>
+                              ▼{Math.abs(album.rankShift)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
-                  <div className="text-right font-mono">
-                    <span className={`text-base md:text-lg font-bold block ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
-                      {formatNumber(album.totalStreams)}
-                    </span>
-                    <div className="flex items-center justify-end gap-2 mt-1">
-                      <span className={`text-xs font-semibold ${theme === "light" ? "text-neutral-700" : "text-neutral-300"}`}>
-                        +{formatNumber(album.dailyGain)}
+                      <img
+                        src={album.coverUrl}
+                        alt={album.title}
+                        className={`w-14 h-14 rounded object-cover border flex-shrink-0 ${theme === "light" ? "border-neutral-200" : "border-neutral-900"}`}
+                      />
+                      <div className="min-w-0">
+                        <span className={`text-base md:text-lg font-bold block leading-tight group-hover:underline truncate ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
+                          {album.title}
+                        </span>
+                        <span className={`text-xs block mt-1 truncate ${theme === "light" ? "text-neutral-600" : "text-neutral-400"}`}>{album.year}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-right font-mono flex-shrink-0">
+                      <span className={`text-base md:text-lg font-bold block ${theme === "light" ? "text-neutral-955" : "text-white"}`}>
+                        {formatNumber(album.totalStreams)}
                       </span>
-                      {(() => {
-                        const gainDisplay = getAlbumGainDisplay(album, language);
-                        if (!gainDisplay || gainDisplay.diff === 0) return null;
-                        return (
-                          <span className={`text-[10px] font-semibold flex items-center ${gainDisplay.isUp ? "text-green-500" : "text-red-400"}`}>
-                            {gainDisplay.isUp ? "▲" : "▼"} {gainDisplay.pctStr}%
-                          </span>
-                        );
-                      })()}
+                      <div className="flex items-center justify-end gap-2 mt-1">
+                        <span className={`text-xs font-semibold ${theme === "light" ? "text-neutral-700" : "text-neutral-300"}`}>
+                          +{formatNumber(album.dailyGain)}
+                        </span>
+                        {(() => {
+                          const gainDisplay = getAlbumGainDisplay(album, language);
+                          if (!gainDisplay || gainDisplay.diff === 0) return null;
+                          return (
+                            <span className={`text-[10px] font-semibold flex items-center ${gainDisplay.isUp ? "text-green-500" : "text-red-400"}`}>
+                              {gainDisplay.isUp ? "▲" : "▼"} {gainDisplay.pctStr}%
+                            </span>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                ))}
+
+                {processedAlbums.length > visibleAlbumsCount && (
+                  <div className="flex justify-center mt-6">
+                    <button
+                      onClick={() => setVisibleAlbumsCount(processedAlbums.length)}
+                      className={`px-8 py-3 rounded-full border text-xs font-bold transition-all cursor-pointer ${
+                        theme === "light"
+                          ? "border-neutral-300 hover:border-black text-neutral-800 hover:bg-neutral-50"
+                          : "border-panel-border/30 hover:border-rose text-mauve hover:text-white bg-wine-deep/10 hover:bg-wine-deep/20"
+                      }`}
+                    >
+                      {language === "pt"
+                        ? `Ver mais (${processedAlbums.length - visibleAlbumsCount} mais)`
+                        : `See more (${processedAlbums.length - visibleAlbumsCount} more)`}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

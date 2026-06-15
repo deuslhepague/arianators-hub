@@ -1,0 +1,57 @@
+[debug] [2026-06-15T00:17:03.032Z] ----------------------------------------------------------------------
+[debug] [2026-06-15T00:17:03.034Z] Command:       C:\Users\mnslm\AppData\Roaming\npm\node.exe C:\Users\mnslm\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy
+[debug] [2026-06-15T00:17:03.034Z] CLI Version:   15.16.0
+[debug] [2026-06-15T00:17:03.034Z] Platform:      win32
+[debug] [2026-06-15T00:17:03.034Z] Node Version:  v23.3.0
+[debug] [2026-06-15T00:17:03.034Z] Time:          Sun Jun 14 2026 21:17:03 GMT-0300 (Horário Padrão de Brasília)
+[debug] [2026-06-15T00:17:03.034Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-06-15T00:17:03.036Z] >>> [apiv2][query] GET https://firebase-public.firebaseio.com/cli.json [none]
+[debug] [2026-06-15T00:17:40.053Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-06-15T00:17:40.054Z] > authorizing via signed-in user (mnslmateus@gmail.com)
+[debug] [2026-06-15T00:17:40.054Z] [iam] checking project arianatorshub for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-06-15T00:17:40.056Z] Checked if tokens are valid: false, expires at: 1780792597852
+[debug] [2026-06-15T00:17:40.057Z] Checked if tokens are valid: false, expires at: 1780792597852
+[debug] [2026-06-15T00:17:40.057Z] > refreshing access token with scopes: []
+[debug] [2026-06-15T00:17:40.060Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-06-15T00:17:40.060Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-06-15T00:17:40.361Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-06-15T00:17:40.361Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-06-15T00:17:40.417Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/arianatorshub:testIamPermissions [none]
+[debug] [2026-06-15T00:17:40.417Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/arianatorshub:testIamPermissions  x-goog-user-project=arianatorshub
+[debug] [2026-06-15T00:17:40.418Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/arianatorshub:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-06-15T00:17:40.489Z] <<< [apiv2][status] GET https://firebase-public.firebaseio.com/cli.json 200
+[debug] [2026-06-15T00:17:40.489Z] <<< [apiv2][body] GET https://firebase-public.firebaseio.com/cli.json {"cloudBuildErrorAfter":1594252800000,"cloudBuildWarnAfter":1590019200000,"defaultNode10After":1594252800000,"minVersion":"3.0.5","node8DeploysDisabledAfter":1613390400000,"node8RuntimeDisabledAfter":1615809600000,"node8WarnAfter":1600128000000}
+[debug] [2026-06-15T00:17:41.496Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/arianatorshub:testIamPermissions 200
+[debug] [2026-06-15T00:17:41.496Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/arianatorshub:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-06-15T00:17:41.498Z] Checked if tokens are valid: true, expires at: 1781486259361
+[debug] [2026-06-15T00:17:41.498Z] Checked if tokens are valid: true, expires at: 1781486259361
+[debug] [2026-06-15T00:17:41.499Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/arianatorshub [none]
+[debug] [2026-06-15T00:17:42.105Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/arianatorshub 200
+[debug] [2026-06-15T00:17:42.105Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/arianatorshub {"projectId":"arianatorshub","projectNumber":"381112608513","displayName":"arianatorshub","name":"projects/arianatorshub","resources":{"hostingSite":"arianatorshub","realtimeDatabaseInstance":"arianatorshub-default-rtdb"},"state":"ACTIVE","etag":"1_17c63ca5-8d41-4b1c-952c-1b9c49866956"}
+[debug] [2026-06-15T00:17:44.528Z] defaultcredentials: writing to file C:\Users\mnslm\AppData\Roaming\firebase\mnslmateus_gmail_com_application_default_credentials.json
+[debug] [2026-06-15T00:17:44.530Z] Checked if tokens are valid: true, expires at: 1781486259361
+[debug] [2026-06-15T00:17:44.530Z] Checked if tokens are valid: true, expires at: 1781486259361
+[debug] [2026-06-15T00:17:44.530Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/arianatorshub/sites pageToken=&pageSize=10
+[debug] [2026-06-15T00:18:06.353Z] ----------------------------------------------------------------------
+[debug] [2026-06-15T00:18:06.354Z] Command:       C:\Users\mnslm\AppData\Roaming\npm\node.exe C:\Users\mnslm\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy
+[debug] [2026-06-15T00:18:06.355Z] CLI Version:   15.16.0
+[debug] [2026-06-15T00:18:06.355Z] Platform:      win32
+[debug] [2026-06-15T00:18:06.355Z] Node Version:  v23.3.0
+[debug] [2026-06-15T00:18:06.355Z] Time:          Sun Jun 14 2026 21:18:06 GMT-0300 (Horário Padrão de Brasília)
+[debug] [2026-06-15T00:18:06.355Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-06-15T00:18:07.809Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-06-15T00:18:07.809Z] > authorizing via signed-in user (mnslmateus@gmail.com)
+[debug] [2026-06-15T00:18:07.810Z] [iam] checking project arianatorshub for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-06-15T00:18:07.810Z] Checked if tokens are valid: true, expires at: 1781486259361
+[debug] [2026-06-15T00:18:07.811Z] Checked if tokens are valid: true, expires at: 1781486259361
+[debug] [2026-06-15T00:18:07.811Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/arianatorshub:testIamPermissions [none]
+[debug] [2026-06-15T00:18:07.811Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/arianatorshub:testIamPermissions  x-goog-user-project=arianatorshub
+[debug] [2026-06-15T00:18:07.811Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/arianatorshub:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-06-15T00:18:08.818Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/arianatorshub:testIamPermissions 200
+[debug] [2026-06-15T00:18:08.818Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/arianatorshub:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-06-15T00:18:08.819Z] Checked if tokens are valid: true, expires at: 1781486259361
+[debug] [2026-06-15T00:18:08.819Z] Checked if tokens are valid: true, expires at: 1781486259361
+[debug] [2026-06-15T00:18:08.819Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/arianatorshub [none]
+[debug] [2026-06-15T00:18:09.340Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/arianatorshub 200

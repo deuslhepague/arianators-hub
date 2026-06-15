@@ -33,8 +33,9 @@ export function calculateForecast(
   }
 
   if (!streamsMap || Object.keys(streamsMap).length === 0) {
+    const rawDays = fallbackDailyGain > 0 ? Math.ceil(remaining / fallbackDailyGain) : null;
     return {
-      daysToGoal: fallbackDailyGain > 0 ? Math.ceil(remaining / fallbackDailyGain) : null,
+      daysToGoal: (rawDays !== null && rawDays <= 1825) ? rawDays : null,
       dailyVelocity: fallbackDailyGain
     };
   }
@@ -67,8 +68,9 @@ export function calculateForecast(
 
   // Fallback if we don't have enough cleaned historical data points
   if (n === 0) {
+    const rawDays = fallbackDailyGain > 0 ? Math.ceil(remaining / fallbackDailyGain) : null;
     return {
-      daysToGoal: fallbackDailyGain > 0 ? Math.ceil(remaining / fallbackDailyGain) : null,
+      daysToGoal: (rawDays !== null && rawDays <= 1825) ? rawDays : null,
       dailyVelocity: fallbackDailyGain
     };
   }
@@ -78,8 +80,9 @@ export function calculateForecast(
     const sum = dailyValues.reduce((acc, curr) => acc + curr.daily, 0);
     const avg = sum / n;
     const velocity = Math.round(avg);
+    const rawDays = velocity > 0 ? Math.ceil(remaining / velocity) : null;
     return {
-      daysToGoal: velocity > 0 ? Math.ceil(remaining / velocity) : null,
+      daysToGoal: (rawDays !== null && rawDays <= 1825) ? rawDays : null,
       dailyVelocity: velocity
     };
   }
@@ -94,8 +97,9 @@ export function calculateForecast(
       weightSum += weight;
     }
     const velocity = Math.round(weightedSum / weightSum);
+    const rawDays = velocity > 0 ? Math.ceil(remaining / velocity) : null;
     return {
-      daysToGoal: velocity > 0 ? Math.ceil(remaining / velocity) : null,
+      daysToGoal: (rawDays !== null && rawDays <= 1825) ? rawDays : null,
       dailyVelocity: velocity
     };
   }
@@ -152,8 +156,8 @@ export function calculateForecast(
     let days = 0;
     const startDay = new Date();
     
-    // Safety cap at 3650 days (10 years)
-    while (accumulatedStreams < remaining && days < 3650) {
+    // Safety cap at 1825 days (5 years)
+    while (accumulatedStreams < remaining && days < 1825) {
       days++;
       const currentProjDate = new Date();
       currentProjDate.setDate(startDay.getDate() + days);
@@ -163,7 +167,7 @@ export function calculateForecast(
     }
 
     return {
-      daysToGoal: days < 3650 ? days : null,
+      daysToGoal: days < 1825 ? days : null,
       dailyVelocity: Math.round(basePace)
     };
   }
@@ -216,7 +220,8 @@ export function calculateForecast(
     let accumulatedStreams = 0;
     let days = 0;
     
-    while (accumulatedStreams < remaining && days < 3650) {
+    // Safety cap at 1825 days (5 years)
+    while (accumulatedStreams < remaining && days < 1825) {
       days++;
       const seasonalIndex = (n + days - 1) % period;
       const projectedValue = Math.max(1, level + days * trend + seasonal[seasonalIndex]);
@@ -226,7 +231,7 @@ export function calculateForecast(
     const currentVelocity = Math.max(1, Math.round(level + trend));
 
     return {
-      daysToGoal: days < 3650 ? days : null,
+      daysToGoal: days < 1825 ? days : null,
       dailyVelocity: currentVelocity
     };
   } catch (error) {
@@ -234,8 +239,9 @@ export function calculateForecast(
     const sum = dailyValues.slice(-30).reduce((acc, curr) => acc + curr.daily, 0);
     const avg = sum / Math.min(30, n);
     const velocity = Math.round(avg);
+    const rawDays = velocity > 0 ? Math.ceil(remaining / velocity) : null;
     return {
-      daysToGoal: velocity > 0 ? Math.ceil(remaining / velocity) : null,
+      daysToGoal: (rawDays !== null && rawDays <= 1825) ? rawDays : null,
       dailyVelocity: velocity
     };
   }

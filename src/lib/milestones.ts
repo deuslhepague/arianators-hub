@@ -1,4 +1,10 @@
 const MILESTONE_TARGETS = [
+  100_000,
+  500_000,
+  1_000_000,
+  5_000_000,
+  10_000_000,
+  20_000_000,
   50_000_000,
   100_000_000,
   150_000_000,
@@ -23,6 +29,12 @@ const MILESTONE_TARGETS = [
 ] as const;
 
 const MILESTONE_LABELS: Record<number, string> = {
+  100_000: "100 Thousand Streams",
+  500_000: "500 Thousand Streams",
+  1_000_000: "1 Million Streams",
+  5_000_000: "5 Million Streams",
+  10_000_000: "10 Million Streams",
+  20_000_000: "20 Million Streams",
   50_000_000: "50 Million Streams",
   100_000_000: "100 Million Streams",
   150_000_000: "150 Million Streams",
