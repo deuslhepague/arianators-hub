@@ -175,6 +175,10 @@ export default function StreamsPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
+  // In-memory cache for full track/album details
+  const [tracksCache, setTracksCache] = useState<Record<string, TrackStat>>({});
+  const [albumsCache, setAlbumsCache] = useState<Record<string, AlbumStat>>({});
+
   const loadAdminConfig = React.useCallback(async (bypass = false) => {
     try {
       const response = await fetch("/api/catalog" + (bypass ? "?bypass=true" : ""));
@@ -183,6 +187,9 @@ export default function StreamsPage() {
       setTracks(data.tracks || []);
       setAlbums(data.albums || []);
       setLastUpdated(data.updatedAt || new Date().toISOString());
+      // Reset cache when catalog updates
+      setTracksCache({});
+      setAlbumsCache({});
     } catch (error) {
       console.error("Failed to load public catalog:", error);
     }
@@ -230,13 +237,19 @@ export default function StreamsPage() {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   const handleSelectTrack = async (track: TrackStat) => {
+    if (tracksCache[track.id]) {
+      setSelectedTrack(tracksCache[track.id]);
+      return;
+    }
     setIsLoadingDetail(true);
     try {
       const res = await fetch(`/api/catalog/detail?type=track&id=${track.id}`);
       if (!res.ok) throw new Error("Failed to fetch track details");
       const result = await res.json();
       if (result.success && result.data) {
-        setSelectedTrack({ ...track, ...result.data });
+        const fullTrack = { ...track, ...result.data };
+        setTracksCache(prev => ({ ...prev, [track.id]: fullTrack }));
+        setSelectedTrack(fullTrack);
       } else {
         setSelectedTrack(track);
       }
@@ -249,13 +262,19 @@ export default function StreamsPage() {
   };
 
   const handleSelectAlbum = async (album: AlbumStat) => {
+    if (albumsCache[album.id]) {
+      setSelectedAlbum(albumsCache[album.id]);
+      return;
+    }
     setIsLoadingDetail(true);
     try {
       const res = await fetch(`/api/catalog/detail?type=album&id=${album.id}`);
       if (!res.ok) throw new Error("Failed to fetch album details");
       const result = await res.json();
       if (result.success && result.data) {
-        setSelectedAlbum({ ...album, ...result.data });
+        const fullAlbum = { ...album, ...result.data };
+        setAlbumsCache(prev => ({ ...prev, [album.id]: fullAlbum }));
+        setSelectedAlbum(fullAlbum);
       } else {
         setSelectedAlbum(album);
       }
