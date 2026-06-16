@@ -1,8 +1,53 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+@font-face {
+  font-family: "SpotifyMixUI";
+  src: url("https://encore.scdn.co/fonts/SpotifyMixUI-Regular-cc3b1de388efa4cbca6c75cebc24585e.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SpotifyMixUI";
+  src: url("https://encore.scdn.co/fonts/SpotifyMixUI-Bold-4264b799009b1db5c491778b1bc8e5b7.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SpotifyMixUITitle";
+  src: url("https://encore.scdn.co/fonts/SpotifyMixUITitleVariable-8769ccfde3379b7ebcadd9529b49d0cc.woff2") format("woff2");
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SpotifyMixUITitle";
+  src: url("https://encore.scdn.co/fonts/SpotifyMixUITitle-Bold-37290f1de77f297fcc26d71e9afcf43f.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SpotifyMixUITitle";
+  src: url("https://encore.scdn.co/fonts/SpotifyMixUITitle-Extrabold-ba6c73cd7f82c81e49cf2204017803ed.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
-  --font-sans: Georgia, Cambria, "Times New Roman", Times, serif;
-  --font-serif: Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-spotify-mix: "SpotifyMixUI", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-spotify-mix-title: "SpotifyMixUITitle", "SpotifyMixUI", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  --font-sans: var(--font-spotify-mix);
+  --font-serif: var(--font-spotify-mix-title);
   
   --color-floral-bg: var(--background);
   --color-floral-fg: var(--foreground);
@@ -82,9 +127,7 @@
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: Georgia, Cambria, "Times New Roman", Times, serif;
-  text-transform: lowercase; /* Ariana shop signature lowercase style */
-  letter-spacing: 0.05em;
+  font-family: var(--font-spotify-mix);
   overflow-x: hidden;
   font-size: 16px; /* Increased base font size from 14px to 16px */
   line-height: 1.6;
@@ -150,7 +193,7 @@ body {
 
 /* High contrast inputs */
 input, select, textarea {
-  font-family: Georgia, Cambria, "Times New Roman", Times, serif;
+  font-family: var(--font-spotify-mix);
 }
 
 /* Link underline animations */

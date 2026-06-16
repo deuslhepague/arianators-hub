@@ -48,8 +48,33 @@ export async function GET(req: Request) {
     const albumsSnap = await db.collection("catalog").doc("config").collection("albums").get();
     const configSnap = await db.collection("catalog").doc("config").get();
 
-    const tracks = tracksSnap.docs.map(doc => doc.data());
-    const albums = albumsSnap.docs.map(doc => doc.data());
+    const tracks = tracksSnap.docs.map(doc => {
+      const data = doc.data();
+      if (data.streams) {
+        const sortedDates = Object.keys(data.streams).sort();
+        const lastTwo = sortedDates.slice(-2);
+        const slicedStreams: Record<string, any> = {};
+        lastTwo.forEach(date => {
+          slicedStreams[date] = data.streams[date];
+        });
+        data.streams = slicedStreams;
+      }
+      return data;
+    });
+
+    const albums = albumsSnap.docs.map(doc => {
+      const data = doc.data();
+      if (data.streams) {
+        const sortedDates = Object.keys(data.streams).sort();
+        const lastTwo = sortedDates.slice(-2);
+        const slicedStreams: Record<string, any> = {};
+        lastTwo.forEach(date => {
+          slicedStreams[date] = data.streams[date];
+        });
+        data.streams = slicedStreams;
+      }
+      return data;
+    });
     let updatedAt = null;
     if (configSnap.exists) {
       const rawUpdatedAt = configSnap.data()?.updatedAt;

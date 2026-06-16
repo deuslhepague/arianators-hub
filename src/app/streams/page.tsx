@@ -40,7 +40,7 @@ interface TrackStat {
   spotifyAlbumId?: string;
   streams?: Record<string, { total: number; daily: number | null }>;
   rank?: number;
-  rankShift?: number | null;
+  rankShift?: number | "new" | null;
 }
 
 interface AlbumStat {
@@ -54,7 +54,7 @@ interface AlbumStat {
   streams?: Record<string, { total: number; daily: number | null }>;
   tracklist?: string[];
   rank?: number;
-  rankShift?: number | null;
+  rankShift?: number | "new" | null;
 }
 
 type StreamTab = "albums" | "tracks" | "milestones";
@@ -212,6 +212,7 @@ export default function StreamsPage() {
   // Visible item counts (10 by default)
   const [visibleTracksCount, setVisibleTracksCount] = useState(10);
   const [visibleAlbumsCount, setVisibleAlbumsCount] = useState(10);
+  const [visibleMilestonesCount, setVisibleMilestonesCount] = useState(10);
 
   // Reset visible counts when search query, sorting, or tab changes
   React.useEffect(() => {
@@ -226,10 +227,53 @@ export default function StreamsPage() {
   const [selectedTrack, setSelectedTrack] = useState<TrackStat | null>(null);
   // Selected Album for Milestones Modal
   const [selectedAlbum, setSelectedAlbum] = useState<AlbumStat | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+
+  const handleSelectTrack = async (track: TrackStat) => {
+    setIsLoadingDetail(true);
+    try {
+      const res = await fetch(`/api/catalog/detail?type=track&id=${track.id}`);
+      if (!res.ok) throw new Error("Failed to fetch track details");
+      const result = await res.json();
+      if (result.success && result.data) {
+        setSelectedTrack({ ...track, ...result.data });
+      } else {
+        setSelectedTrack(track);
+      }
+    } catch (err) {
+      console.error(err);
+      setSelectedTrack(track);
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  };
+
+  const handleSelectAlbum = async (album: AlbumStat) => {
+    setIsLoadingDetail(true);
+    try {
+      const res = await fetch(`/api/catalog/detail?type=album&id=${album.id}`);
+      if (!res.ok) throw new Error("Failed to fetch album details");
+      const result = await res.json();
+      if (result.success && result.data) {
+        setSelectedAlbum({ ...album, ...result.data });
+      } else {
+        setSelectedAlbum(album);
+      }
+    } catch (err) {
+      console.error(err);
+      setSelectedAlbum(album);
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  };
 
   // Milestones Specific Filters
   const [milestoneSubTab, setMilestoneSubTab] = useState<"upcoming" | "surpassed">("upcoming");
   const [selectedSurpassedTarget, setSelectedSurpassedTarget] = useState<number>(100_000_000);
+
+  React.useEffect(() => {
+    setVisibleMilestonesCount(10);
+  }, [searchQuery, streamTab, milestoneSubTab, selectedSurpassedTarget]);
 
   const globalStats = useMemo(() => {
     if (albums.length === 0 && tracks.length === 0) {
@@ -313,7 +357,9 @@ export default function StreamsPage() {
   }, [albums, tracks, language]);
 
   const upcomingMilestones = useMemo(() => {
-    const allItems = tracks.map(t => ({ ...t, type: "track" }));
+    const trackItems = tracks.map(t => ({ ...t, type: "track" }));
+    const albumItems = albums.map(a => ({ ...a, type: "album", artist: "Ariana Grande", avgDailyGain: a.dailyGain }));
+    const allItems = [...trackItems, ...albumItems];
 
     return allItems
       .map(item => {
@@ -347,12 +393,11 @@ export default function StreamsPage() {
         }
         return b.progressPercent - a.progressPercent;
       });
-  }, [tracks]);
+  }, [tracks, albums]);
 
   const surpassedItems = useMemo(() => {
-    const allItems = tracks.map(t => ({ ...t, type: "track" }));
-
-    return allItems
+    return tracks
+      .map(t => ({ ...t, type: "track" }))
       .filter(item => item.totalStreams >= selectedSurpassedTarget)
       .sort((a, b) => b.totalStreams - a.totalStreams);
   }, [tracks, selectedSurpassedTarget]);
@@ -431,13 +476,15 @@ export default function StreamsPage() {
     return todaySorted.map((track, todayIdx) => {
       const todayRank = todayIdx + 1;
       let yesterdayRank = null;
-      let rankShift = null;
+      let rankShift: number | "new" | null = null;
 
       if (hasHistory) {
         const yesterdayIdx = yesterdaySorted.findIndex(t => t.id === track.id);
         if (yesterdayIdx !== -1) {
           yesterdayRank = yesterdayIdx + 1;
           rankShift = yesterdayRank - todayRank;
+        } else {
+          rankShift = "new";
         }
       }
 
@@ -524,13 +571,15 @@ export default function StreamsPage() {
     return todaySorted.map((album, todayIdx) => {
       const todayRank = todayIdx + 1;
       let yesterdayRank = null;
-      let rankShift = null;
+      let rankShift: number | "new" | null = null;
 
       if (hasHistory) {
         const yesterdayIdx = yesterdaySorted.findIndex(a => a.id === album.id);
         if (yesterdayIdx !== -1) {
           yesterdayRank = yesterdayIdx + 1;
           rankShift = yesterdayRank - todayRank;
+        } else {
+          rankShift = "new";
         }
       }
 
@@ -649,8 +698,8 @@ export default function StreamsPage() {
           <span className="text-[10px] font-serif uppercase tracking-widest text-mauve block mb-0.5">
             {language === "pt" ? "estatísticas da artista" : "artist statistics"}
           </span>
-          <h2 className="text-2xl md:text-3xl font-serif text-rose font-bold mb-1.5 tracking-wider lowercase">
-            ariana grande
+          <h2 className="text-2xl md:text-3xl font-serif text-rose font-bold mb-1.5 tracking-wider">
+            Ariana Grande
           </h2>
           <div className="flex flex-col gap-1 mt-1">
             {/* Daily streams */}
@@ -666,13 +715,12 @@ export default function StreamsPage() {
             {/* Change */}
             {globalStats.globalChange && (
               <div className="flex items-center gap-2 mt-0.5">
-                <span className={`text-xs font-mono font-bold ${
-                  globalStats.globalChange.diff > 0 
-                    ? "text-emerald-500" 
-                    : globalStats.globalChange.diff < 0 
-                    ? "text-red-500" 
+                <span className={`text-xs font-mono font-bold ${globalStats.globalChange.diff > 0
+                  ? "text-emerald-500"
+                  : globalStats.globalChange.diff < 0
+                    ? "text-red-500"
                     : "text-mauve"
-                }`}>
+                  }`}>
                   {globalStats.globalChange.diff > 0 ? "+" : ""}{formatNumber(globalStats.globalChange.diff)} ({globalStats.globalChange.diff > 0 ? "+" : (globalStats.globalChange.diff < 0 ? "-" : "")}{globalStats.globalChange.pctStr}%)
                 </span>
                 <span className="text-[10px] text-mauve font-serif lowercase">
@@ -709,7 +757,7 @@ export default function StreamsPage() {
               <img src={globalStats.biggestDailyGainer.coverUrl} alt={globalStats.biggestDailyGainer.title} className="w-9 h-9 rounded object-cover border border-panel-border/10" />
               <div className="flex-1 min-w-0">
                 <span className="text-[8px] uppercase tracking-widest text-mauve block leading-none">{language === "pt" ? "maior ganho diário" : "biggest daily gainer"}</span>
-                <span className="text-xs font-serif font-bold block truncate leading-tight mt-1 text-rose lowercase">{globalStats.biggestDailyGainer.title}</span>
+                <span className="text-xs font-serif font-bold block truncate leading-tight mt-1 text-rose">{globalStats.biggestDailyGainer.title}</span>
                 <span className="text-[10px] font-mono text-emerald-500 font-semibold leading-none block mt-0.5">+{formatNumber(globalStats.biggestDailyGainer.dailyGain)}</span>
               </div>
             </div>
@@ -735,8 +783,8 @@ export default function StreamsPage() {
           <button
             onClick={() => setStreamTab("albums")}
             className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider rounded transition-all cursor-pointer ${streamTab === "albums"
-                ? (theme === "light" ? "bg-black text-white font-extrabold" : "bg-white text-black font-extrabold")
-                : (theme === "light" ? "text-neutral-500 hover:text-black" : "text-neutral-400 hover:text-white")
+              ? (theme === "light" ? "bg-black text-white font-extrabold" : "bg-white text-black font-extrabold")
+              : (theme === "light" ? "text-neutral-500 hover:text-black" : "text-neutral-400 hover:text-white")
               }`}
           >
             {language === "pt" ? "álbuns" : "albums"}
@@ -744,8 +792,8 @@ export default function StreamsPage() {
           <button
             onClick={() => setStreamTab("tracks")}
             className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider rounded transition-all cursor-pointer ${streamTab === "tracks"
-                ? (theme === "light" ? "bg-black text-white font-extrabold" : "bg-white text-black font-extrabold")
-                : (theme === "light" ? "text-neutral-500 hover:text-black" : "text-neutral-400 hover:text-white")
+              ? (theme === "light" ? "bg-black text-white font-extrabold" : "bg-white text-black font-extrabold")
+              : (theme === "light" ? "text-neutral-500 hover:text-black" : "text-neutral-400 hover:text-white")
               }`}
           >
             {language === "pt" ? "músicas" : "tracks"}
@@ -753,8 +801,8 @@ export default function StreamsPage() {
           <button
             onClick={() => setStreamTab("milestones")}
             className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider rounded transition-all cursor-pointer ${streamTab === "milestones"
-                ? (theme === "light" ? "bg-black text-white font-extrabold" : "bg-white text-black font-extrabold")
-                : (theme === "light" ? "text-neutral-500 hover:text-black" : "text-neutral-400 hover:text-white")
+              ? (theme === "light" ? "bg-black text-white font-extrabold" : "bg-white text-black font-extrabold")
+              : (theme === "light" ? "text-neutral-500 hover:text-black" : "text-neutral-400 hover:text-white")
               }`}
           >
             {language === "pt" ? "metas" : "milestones"}
@@ -766,8 +814,8 @@ export default function StreamsPage() {
           <Info className={`w-4 h-4 flex-shrink-0 mt-0.5 ${theme === "light" ? "text-black" : "text-white"}`} />
           <div>
             {language === "pt"
-              ? "clique em qualquer música para ver as metas e estimativas de conclusão."
-              : "click on any track to view milestone progress and target completion dates."}
+              ? "clique em qualquer música/álbum para ver as metas e estimativas de conclusão."
+              : "click on any track/album to view milestone progress and target completion dates."}
           </div>
         </div>
 
@@ -819,16 +867,15 @@ export default function StreamsPage() {
               <div className="relative w-full sm:w-auto flex-shrink-0">
                 <button
                   onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
-                  className={`w-full sm:w-auto px-4 py-2 text-xs font-bold uppercase tracking-wider border rounded flex items-center justify-between sm:justify-start gap-2 transition-all cursor-pointer ${
-                    theme === "light" 
-                      ? "bg-neutral-50 border-neutral-300 text-neutral-800 hover:border-black hover:text-black" 
-                      : "bg-wine-deep/30 border-panel-border/30 text-rose hover:border-rose"
-                  }`}
+                  className={`w-full sm:w-auto px-4 py-2 text-xs font-bold uppercase tracking-wider border rounded flex items-center justify-between sm:justify-start gap-2 transition-all cursor-pointer ${theme === "light"
+                    ? "bg-neutral-50 border-neutral-300 text-neutral-800 hover:border-black hover:text-black"
+                    : "bg-wine-deep/30 border-panel-border/30 text-rose hover:border-rose"
+                    }`}
                 >
                   <div className="flex items-center gap-1.5">
                     <span>{language === "pt" ? "ORDENAR" : "SORT"}</span>
                     <span className="font-serif lowercase font-normal italic opacity-85">
-                      {streamTab === "tracks" 
+                      {streamTab === "tracks"
                         ? (sortBy === "daily" ? (language === "pt" ? "daily" : "daily") : sortBy === "pct" ? "%" : (language === "pt" ? "total" : "total"))
                         : (albumSortBy === "daily" ? (language === "pt" ? "daily" : "daily") : albumSortBy === "year" ? (language === "pt" ? "ano" : "year") : albumSortBy === "pct" ? "%" : (language === "pt" ? "total" : "total"))
                       }
@@ -841,12 +888,11 @@ export default function StreamsPage() {
                   <>
                     {/* Overlay backdrop to close dropdown */}
                     <div className="fixed inset-0 z-10" onClick={() => setIsSortDropdownOpen(false)} />
-                    
-                    <div className={`absolute right-0 mt-2 w-48 rounded border shadow-lg z-20 p-3 animate-fade-in ${
-                      theme === "light" 
-                        ? "bg-white border-neutral-200 text-neutral-900" 
-                        : "bg-wine-deep border-panel-border text-rose"
-                    }`}>
+
+                    <div className={`absolute right-0 mt-2 w-48 rounded border shadow-lg z-20 p-3 animate-fade-in ${theme === "light"
+                      ? "bg-white border-neutral-200 text-neutral-900"
+                      : "bg-wine-deep border-panel-border text-rose"
+                      }`}>
                       <span className={`text-[9px] font-bold uppercase tracking-widest block mb-2 ${theme === "light" ? "text-neutral-400" : "text-mauve"}`}>
                         {language === "pt" ? "ORDENAR POR" : "SORT BY"}
                       </span>
@@ -859,11 +905,10 @@ export default function StreamsPage() {
                                 setSortBy("total");
                                 setIsSortDropdownOpen(false);
                               }}
-                              className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${
-                                sortBy === "total" 
-                                  ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose") 
-                                  : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
-                              }`}
+                              className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${sortBy === "total"
+                                ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose")
+                                : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
+                                }`}
                             >
                               <span>{language === "pt" ? "Total" : "Total"}</span>
                               {sortBy === "total" && <Check className="w-3 h-3" />}
@@ -873,11 +918,10 @@ export default function StreamsPage() {
                                 setSortBy("daily");
                                 setIsSortDropdownOpen(false);
                               }}
-                              className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${
-                                sortBy === "daily" 
-                                  ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose") 
-                                  : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
-                              }`}
+                              className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${sortBy === "daily"
+                                ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose")
+                                : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
+                                }`}
                             >
                               <span>{language === "pt" ? "Daily" : "Daily"}</span>
                               {sortBy === "daily" && <Check className="w-3 h-3" />}
@@ -887,11 +931,10 @@ export default function StreamsPage() {
                                 setSortBy("pct");
                                 setIsSortDropdownOpen(false);
                               }}
-                              className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${
-                                sortBy === "pct" 
-                                  ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose") 
-                                  : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
-                              }`}
+                              className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${sortBy === "pct"
+                                ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose")
+                                : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
+                                }`}
                             >
                               <span>{language === "pt" ? "% de ganho" : "% gain"}</span>
                               {sortBy === "pct" && <Check className="w-3 h-3" />}
@@ -905,11 +948,10 @@ export default function StreamsPage() {
                                 setAlbumSortBy("total");
                                 setIsSortDropdownOpen(false);
                               }}
-                              className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${
-                                albumSortBy === "total" 
-                                  ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose") 
-                                  : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
-                              }`}
+                              className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${albumSortBy === "total"
+                                ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose")
+                                : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
+                                }`}
                             >
                               <span>{language === "pt" ? "Total" : "Total"}</span>
                               {albumSortBy === "total" && <Check className="w-3 h-3" />}
@@ -919,11 +961,10 @@ export default function StreamsPage() {
                                 setAlbumSortBy("daily");
                                 setIsSortDropdownOpen(false);
                               }}
-                              className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${
-                                albumSortBy === "daily" 
-                                  ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose") 
-                                  : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
-                              }`}
+                              className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${albumSortBy === "daily"
+                                ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose")
+                                : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
+                                }`}
                             >
                               <span>{language === "pt" ? "Daily" : "Daily"}</span>
                               {albumSortBy === "daily" && <Check className="w-3 h-3" />}
@@ -933,11 +974,10 @@ export default function StreamsPage() {
                                 setAlbumSortBy("pct");
                                 setIsSortDropdownOpen(false);
                               }}
-                              className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${
-                                albumSortBy === "pct" 
-                                  ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose") 
-                                  : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
-                              }`}
+                              className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${albumSortBy === "pct"
+                                ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose")
+                                : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
+                                }`}
                             >
                               <span>{language === "pt" ? "% de ganho" : "% gain"}</span>
                               {albumSortBy === "pct" && <Check className="w-3 h-3" />}
@@ -947,11 +987,10 @@ export default function StreamsPage() {
                                 setAlbumSortBy("year");
                                 setIsSortDropdownOpen(false);
                               }}
-                              className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${
-                                albumSortBy === "year" 
-                                  ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose") 
-                                  : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
-                              }`}
+                              className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${albumSortBy === "year"
+                                ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose")
+                                : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
+                                }`}
                             >
                               <span>{language === "pt" ? "Release Year" : "Release Year"}</span>
                               {albumSortBy === "year" && <Check className="w-3 h-3" />}
@@ -969,11 +1008,10 @@ export default function StreamsPage() {
                             setSortDirection("desc");
                             setIsSortDropdownOpen(false);
                           }}
-                          className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${
-                            sortDirection === "desc" 
-                              ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose") 
-                              : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
-                          }`}
+                          className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${sortDirection === "desc"
+                            ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose")
+                            : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
+                            }`}
                         >
                           <span>{language === "pt" ? "Maior para menor" : "High to low"}</span>
                           {sortDirection === "desc" && <Check className="w-3 h-3" />}
@@ -983,11 +1021,10 @@ export default function StreamsPage() {
                             setSortDirection("asc");
                             setIsSortDropdownOpen(false);
                           }}
-                          className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${
-                            sortDirection === "asc" 
-                              ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose") 
-                              : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
-                          }`}
+                          className={`w-full flex items-center justify-between text-xs py-1.5 px-2 rounded transition-all cursor-pointer ${sortDirection === "asc"
+                            ? (theme === "light" ? "bg-neutral-100 font-bold" : "bg-wine-deep-light font-bold text-rose")
+                            : "hover:bg-neutral-50/50 dark:hover:bg-wine-deep-light/40"
+                            }`}
                         >
                           <span>{language === "pt" ? "Menor para maior" : "Low to high"}</span>
                           {sortDirection === "asc" && <Check className="w-3 h-3" />}
@@ -1008,21 +1045,19 @@ export default function StreamsPage() {
             <div className="flex gap-4">
               <button
                 onClick={() => setMilestoneSubTab("upcoming")}
-                className={`px-4 py-2 text-xs font-bold uppercase tracking-widest border transition-all cursor-pointer ${
-                  milestoneSubTab === "upcoming"
-                    ? (theme === "light" ? "bg-black border-black text-white" : "bg-rose border-rose text-floral-bg")
-                    : (theme === "light" ? "border-neutral-350 text-neutral-500 hover:text-black" : "border-neutral-850 text-mauve hover:text-white")
-                }`}
+                className={`px-4 py-2 text-xs font-bold uppercase tracking-widest border transition-all cursor-pointer ${milestoneSubTab === "upcoming"
+                  ? (theme === "light" ? "bg-black border-black text-white" : "bg-rose border-rose text-floral-bg")
+                  : (theme === "light" ? "border-neutral-350 text-neutral-500 hover:text-black" : "border-neutral-850 text-mauve hover:text-white")
+                  }`}
               >
                 {language === "pt" ? "próximas" : "upcoming"}
               </button>
               <button
                 onClick={() => setMilestoneSubTab("surpassed")}
-                className={`px-4 py-2 text-xs font-bold uppercase tracking-widest border transition-all cursor-pointer ${
-                  milestoneSubTab === "surpassed"
-                    ? (theme === "light" ? "bg-black border-black text-white" : "bg-rose border-rose text-floral-bg")
-                    : (theme === "light" ? "border-neutral-350 text-neutral-500 hover:text-black" : "border-neutral-850 text-mauve hover:text-white")
-                }`}
+                className={`px-4 py-2 text-xs font-bold uppercase tracking-widest border transition-all cursor-pointer ${milestoneSubTab === "surpassed"
+                  ? (theme === "light" ? "bg-black border-black text-white" : "bg-rose border-rose text-floral-bg")
+                  : (theme === "light" ? "border-neutral-350 text-neutral-500 hover:text-black" : "border-neutral-850 text-mauve hover:text-white")
+                  }`}
               >
                 {language === "pt" ? "superadas" : "surpassed"}
               </button>
@@ -1039,11 +1074,10 @@ export default function StreamsPage() {
                     <button
                       key={pill.value}
                       onClick={() => setSelectedSurpassedTarget(pill.value)}
-                      className={`px-3 py-1.5 font-mono text-xs border rounded transition-all cursor-pointer ${
-                        selectedSurpassedTarget === pill.value
-                          ? (theme === "light" ? "bg-black border-black text-white font-bold" : "bg-rose border-rose text-floral-bg font-bold")
-                          : (theme === "light" ? "bg-transparent border-neutral-300 text-neutral-600 hover:border-black hover:text-black" : "bg-transparent border-neutral-800 text-mauve hover:border-white hover:text-rose")
-                      }`}
+                      className={`px-3 py-1.5 font-mono text-xs border rounded transition-all cursor-pointer ${selectedSurpassedTarget === pill.value
+                        ? (theme === "light" ? "bg-black border-black text-white font-bold" : "bg-rose border-rose text-floral-bg font-bold")
+                        : (theme === "light" ? "bg-transparent border-neutral-300 text-neutral-600 hover:border-black hover:text-black" : "bg-transparent border-neutral-800 text-mauve hover:border-white hover:text-rose")
+                        }`}
                     >
                       {pill.label}
                     </button>
@@ -1057,11 +1091,11 @@ export default function StreamsPage() {
         {/* TRACKS LIST */}
         {streamTab === "tracks" && (
           <div className="space-y-2">
-            <div className={`flex justify-between text-[10px] font-bold uppercase tracking-wider px-4 pb-3 border-b ${theme === "light" ? "text-neutral-500 border-neutral-200" : "text-neutral-500 border-neutral-900/60"}`}>
-              <div className="flex items-center gap-4">
-                <div className="w-16 sm:w-20 flex items-center gap-2 flex-shrink-0">
-                  <span className="w-6 text-right">#</span>
-                  <span className="w-10 text-center">▲▼</span>
+            <div className={`flex justify-between text-[10px] font-bold uppercase tracking-wider px-2.5 sm:px-4 pb-3 border-b ${theme === "light" ? "text-neutral-500 border-neutral-200" : "text-neutral-500 border-neutral-900/60"}`}>
+              <div className="flex items-center gap-2 sm:gap-4">
+                <div className="w-12 sm:w-20 flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                  <span className="w-4 sm:w-6 text-right">#</span>
+                  <span className="w-8 sm:w-10 text-center">▲▼</span>
                 </div>
                 <span>{language === "pt" ? "música" : "track"}</span>
               </div>
@@ -1077,35 +1111,49 @@ export default function StreamsPage() {
                 {processedTracks.slice(0, visibleTracksCount).map((track) => (
                   <div
                     key={track.id}
-                    onClick={() => setSelectedTrack(track)}
-                    className={`flex items-center justify-between p-4 rounded border transition-all cursor-pointer group ${theme === "light" ? "border-transparent hover:border-neutral-300 hover:bg-neutral-50" : "border-transparent hover:border-neutral-800 hover:bg-neutral-950/60"}`}
+                    onClick={() => handleSelectTrack(track)}
+                    className={`flex items-center justify-between p-2.5 sm:p-4 rounded border transition-all cursor-pointer group ${theme === "light" ? "border-transparent hover:border-neutral-300 hover:bg-neutral-50" : "border-transparent hover:border-neutral-800 hover:bg-neutral-950/60"}`}
                   >
-                    <div className="flex items-center gap-4 min-w-0">
+                    <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
                       {/* Rank and Shift column */}
-                      <div className="flex items-center gap-2.5 w-16 sm:w-20 flex-shrink-0">
-                        <span className={`text-sm md:text-base font-extrabold w-6 text-right ${theme === "light" ? "text-neutral-955" : "text-white"}`}>
+                      <div className="flex items-center gap-1.5 sm:gap-2.5 w-12 sm:w-20 flex-shrink-0">
+                        <span className={`text-xs sm:text-sm md:text-base font-extrabold w-4 sm:w-6 text-right ${theme === "light" ? "text-neutral-955" : "text-white"}`}>
                           {track.rank}
                         </span>
-                        
-                        <div className="w-10 flex justify-center">
-                          {track.rankShift === null || track.rankShift === 0 ? (
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                              theme === "light" ? "bg-neutral-100 text-neutral-400" : "bg-neutral-900/60 text-neutral-500 border border-neutral-850"
-                            }`}>
+
+                        <div className="w-8 sm:w-10 flex justify-center">
+                          {track.rankShift === "new" ? (
+                            <div aria-label="Chart position new entry" className={`h-4.5 px-1 sm:px-2 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] font-extrabold tracking-wide uppercase ${theme === "light"
+                              ? "bg-blue-50 text-blue-600 border border-blue-200"
+                              : "bg-blue-950/30 text-blue-400 border border-blue-900/40"
+                              }`}>
+                              {language === "pt" ? "Novo" : "New"}
+                            </div>
+                          ) : track.rankShift === null || track.rankShift === 0 ? (
+                            <span className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold ${theme === "light" ? "bg-neutral-100 text-neutral-400" : "bg-neutral-900/60 text-neutral-500 border border-neutral-850"
+                              }`}>
                               —
                             </span>
-                          ) : track.rankShift > 0 ? (
-                            <span className={`h-6 px-1.5 rounded-full flex items-center justify-center gap-0.5 text-[9px] font-bold ${
-                              theme === "light" ? "bg-emerald-50 text-emerald-600" : "bg-emerald-950/40 text-emerald-400 border border-emerald-900/30"
-                            }`}>
-                              ▲{track.rankShift}
-                            </span>
+                          ) : typeof track.rankShift === "number" && track.rankShift > 0 ? (
+                            <div aria-label="Chart position moved up" className={`h-5 sm:h-6 px-1 sm:px-1.5 rounded-full flex items-center justify-center gap-0.5 text-[10px] sm:text-xs font-bold ${theme === "light"
+                              ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                              : "bg-emerald-950/30 text-emerald-400 border border-emerald-900/40"
+                              }`}>
+                              <svg data-encore-id="icon" role="img" aria-hidden="true" className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current flex-shrink-0" viewBox="0 0 24 24">
+                                <path d="M3.5 13.414a.999.999 0 0 1-.707-1.707l9.2-9.207 9.202 9.207a1 1 0 1 1-1.413 1.414L13 6.335V20.5a1 1 0 0 1-2 0V6.322l-6.794 6.799a.999.999 0 0 1-.707.293z"></path>
+                              </svg>
+                              <span>{track.rankShift}</span>
+                            </div>
                           ) : (
-                            <span className={`h-6 px-1.5 rounded-full flex items-center justify-center gap-0.5 text-[9px] font-bold ${
-                              theme === "light" ? "bg-red-50 text-red-650" : "bg-red-950/40 text-red-400 border border-red-900/30"
-                            }`}>
-                              ▼{Math.abs(track.rankShift)}
-                            </span>
+                            <div aria-label="Chart position moved down" className={`h-5 sm:h-6 px-1 sm:px-1.5 rounded-full flex items-center justify-center gap-0.5 text-[10px] sm:text-xs font-bold ${theme === "light"
+                              ? "bg-red-50 text-red-650 border border-red-200"
+                              : "bg-red-955/20 text-red-400 border border-red-900/40"
+                              }`}>
+                              <svg data-encore-id="icon" role="img" aria-hidden="true" className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current flex-shrink-0" viewBox="0 0 24 24">
+                                <path d="M3.5 10.586a1 1 0 0 0-.707 1.707l9.2 9.207 9.202-9.207a1 1 0 1 0-1.413-1.414L13 17.665V3.5a1 1 0 1 0-2 0v14.178l-6.794-6.8a1 1 0 0 0-.707-.292z"></path>
+                              </svg>
+                              <span>{typeof track.rankShift === "number" ? Math.abs(track.rankShift) : 0}</span>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1113,30 +1161,43 @@ export default function StreamsPage() {
                       <img
                         src={track.coverUrl}
                         alt={track.title}
-                        className={`w-14 h-14 rounded object-cover border flex-shrink-0 ${theme === "light" ? "border-neutral-200" : "border-neutral-900"}`}
+                        className={`w-10 h-10 sm:w-14 sm:h-14 rounded object-cover border flex-shrink-0 ${theme === "light" ? "border-neutral-200" : "border-neutral-900"}`}
                       />
-                      <div className="min-w-0">
-                        <span className={`text-base md:text-lg font-bold block leading-tight group-hover:underline truncate ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
+                      <div className="flex-1 min-w-0">
+                        <span className={`text-sm sm:text-base md:text-lg font-bold block leading-tight group-hover:underline truncate ${theme === "light" ? "text-neutral-955" : "text-white"}`}>
                           {track.title}
                         </span>
-                        <span className={`text-xs block mt-1 truncate ${theme === "light" ? "text-neutral-600" : "text-neutral-400"}`}>{track.artist}</span>
+                        <span className={`text-[10px] sm:text-xs block mt-0.5 sm:mt-1 truncate ${theme === "light" ? "text-neutral-600" : "text-neutral-400"}`}>{track.artist}</span>
                       </div>
                     </div>
 
-                    <div className="text-right font-mono flex-shrink-0">
-                      <span className={`text-base md:text-lg font-bold block ${theme === "light" ? "text-neutral-955" : "text-white"}`}>
+                    <div className="text-right font-mono flex-shrink-0 pl-1">
+                      <span className={`text-sm sm:text-base md:text-lg font-bold block ${theme === "light" ? "text-neutral-955" : "text-white"}`}>
                         {formatNumber(track.totalStreams)}
                       </span>
-                      <div className="flex items-center justify-end gap-2 mt-1">
-                        <span className={`text-xs font-semibold ${theme === "light" ? "text-neutral-700" : "text-neutral-300"}`}>
+                      <div className="flex items-center justify-end gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
+                        <span className={`text-[10px] sm:text-xs font-semibold ${theme === "light" ? "text-neutral-700" : "text-neutral-300"}`}>
                           +{formatNumber(track.dailyGain)}
                         </span>
                         {(() => {
                           const gainDisplay = getTrackGainDisplay(track, language);
                           if (!gainDisplay || gainDisplay.diff === 0) return null;
+                          const isUp = gainDisplay.isUp;
                           return (
-                            <span className={`text-[10px] font-semibold flex items-center ${gainDisplay.isUp ? "text-green-500" : "text-red-400"}`}>
-                              {gainDisplay.isUp ? "▲" : "▼"} {gainDisplay.pctStr}%
+                            <span className={`text-[9px] sm:text-[10px] font-semibold flex items-center gap-0.5 ${isUp
+                              ? (theme === "light" ? "text-emerald-700" : "text-emerald-400")
+                              : (theme === "light" ? "text-red-600" : "text-red-400")
+                              }`}>
+                              {isUp ? (
+                                <svg data-encore-id="icon" role="img" aria-hidden="true" className="w-2.5 h-2.5 fill-current flex-shrink-0 mr-0.5" viewBox="0 0 24 24">
+                                  <path d="M3.5 13.414a.999.999 0 0 1-.707-1.707l9.2-9.207 9.202 9.207a1 1 0 1 1-1.413 1.414L13 6.335V20.5a1 1 0 0 1-2 0V6.322l-6.794 6.799a.999.999 0 0 1-.707.293z"></path>
+                                </svg>
+                              ) : (
+                                <svg data-encore-id="icon" role="img" aria-hidden="true" className="w-2.5 h-2.5 fill-current flex-shrink-0 mr-0.5" viewBox="0 0 24 24">
+                                  <path d="M3.5 10.586a1 1 0 0 0-.707 1.707l9.2 9.207 9.202-9.207a1 1 0 1 0-1.413-1.414L13 17.665V3.5a1 1 0 1 0-2 0v14.178l-6.794-6.8a1 1 0 0 0-.707-.292z"></path>
+                                </svg>
+                              )}
+                              <span>{gainDisplay.pctStr}%</span>
                             </span>
                           );
                         })()}
@@ -1149,11 +1210,10 @@ export default function StreamsPage() {
                   <div className="flex justify-center mt-6">
                     <button
                       onClick={() => setVisibleTracksCount(processedTracks.length)}
-                      className={`px-8 py-3 rounded-full border text-xs font-bold transition-all cursor-pointer ${
-                        theme === "light"
-                          ? "border-neutral-300 hover:border-black text-neutral-800 hover:bg-neutral-50"
-                          : "border-panel-border/30 hover:border-rose text-mauve hover:text-white bg-wine-deep/10 hover:bg-wine-deep/20"
-                      }`}
+                      className={`px-8 py-3 rounded-full border text-xs font-bold transition-all cursor-pointer ${theme === "light"
+                        ? "border-neutral-300 hover:border-black text-neutral-800 hover:bg-neutral-50"
+                        : "border-panel-border/30 hover:border-rose text-mauve hover:text-white bg-wine-deep/10 hover:bg-wine-deep/20"
+                        }`}
                     >
                       {language === "pt"
                         ? `Ver mais (${processedTracks.length - visibleTracksCount} mais)`
@@ -1169,11 +1229,11 @@ export default function StreamsPage() {
         {/* ALBUMS LIST */}
         {streamTab === "albums" && (
           <div className="space-y-2">
-            <div className={`flex justify-between text-[10px] font-bold uppercase tracking-wider px-4 pb-3 border-b ${theme === "light" ? "text-neutral-500 border-neutral-200" : "text-neutral-500 border-neutral-900/60"}`}>
-              <div className="flex items-center gap-4">
-                <div className="w-16 sm:w-20 flex items-center gap-2 flex-shrink-0">
-                  <span className="w-6 text-right">#</span>
-                  <span className="w-10 text-center">▲▼</span>
+            <div className={`flex justify-between text-[10px] font-bold uppercase tracking-wider px-2.5 sm:px-4 pb-3 border-b ${theme === "light" ? "text-neutral-500 border-neutral-200" : "text-neutral-500 border-neutral-900/60"}`}>
+              <div className="flex items-center gap-2 sm:gap-4">
+                <div className="w-12 sm:w-20 flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                  <span className="w-4 sm:w-6 text-right">#</span>
+                  <span className="w-8 sm:w-10 text-center">▲▼</span>
                 </div>
                 <span>{language === "pt" ? "álbum" : "album"}</span>
               </div>
@@ -1189,35 +1249,49 @@ export default function StreamsPage() {
                 {processedAlbums.slice(0, visibleAlbumsCount).map((album) => (
                   <div
                     key={album.id}
-                    onClick={() => setSelectedAlbum(album)}
-                    className={`flex items-center justify-between p-4 rounded border transition-all cursor-pointer group ${theme === "light" ? "border-transparent hover:border-neutral-300 hover:bg-neutral-50" : "border-transparent hover:border-neutral-800 hover:bg-neutral-950/60"}`}
+                    onClick={() => handleSelectAlbum(album)}
+                    className={`flex items-center justify-between p-2.5 sm:p-4 rounded border transition-all cursor-pointer group ${theme === "light" ? "border-transparent hover:border-neutral-300 hover:bg-neutral-50" : "border-transparent hover:border-neutral-800 hover:bg-neutral-950/60"}`}
                   >
-                    <div className="flex items-center gap-4 min-w-0">
+                    <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
                       {/* Rank and Shift column */}
-                      <div className="flex items-center gap-2.5 w-16 sm:w-20 flex-shrink-0">
-                        <span className={`text-sm md:text-base font-extrabold w-6 text-right ${theme === "light" ? "text-neutral-955" : "text-white"}`}>
+                      <div className="flex items-center gap-1.5 sm:gap-2.5 w-12 sm:w-20 flex-shrink-0">
+                        <span className={`text-xs sm:text-sm md:text-base font-extrabold w-4 sm:w-6 text-right ${theme === "light" ? "text-neutral-955" : "text-white"}`}>
                           {album.rank}
                         </span>
-                        
-                        <div className="w-10 flex justify-center">
-                          {album.rankShift === null || album.rankShift === 0 ? (
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                              theme === "light" ? "bg-neutral-100 text-neutral-400" : "bg-neutral-900/60 text-neutral-500 border border-neutral-850"
-                            }`}>
+
+                        <div className="w-8 sm:w-10 flex justify-center">
+                          {album.rankShift === "new" ? (
+                            <div aria-label="Chart position new entry" className={`h-4.5 px-1 sm:px-2 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] font-extrabold tracking-wide uppercase ${theme === "light"
+                              ? "bg-blue-50 text-blue-600 border border-blue-200"
+                              : "bg-blue-950/30 text-blue-400 border border-blue-900/40"
+                              }`}>
+                              {language === "pt" ? "Novo" : "New"}
+                            </div>
+                          ) : album.rankShift === null || album.rankShift === 0 ? (
+                            <span className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold ${theme === "light" ? "bg-neutral-100 text-neutral-400" : "bg-neutral-900/60 text-neutral-500 border border-neutral-850"
+                              }`}>
                               —
                             </span>
-                          ) : album.rankShift > 0 ? (
-                            <span className={`h-6 px-1.5 rounded-full flex items-center justify-center gap-0.5 text-[9px] font-bold ${
-                              theme === "light" ? "bg-emerald-50 text-emerald-600" : "bg-emerald-950/40 text-emerald-400 border border-emerald-900/30"
-                            }`}>
-                              ▲{album.rankShift}
-                            </span>
+                          ) : typeof album.rankShift === "number" && album.rankShift > 0 ? (
+                            <div aria-label="Chart position moved up" className={`h-5 sm:h-6 px-1 sm:px-1.5 rounded-full flex items-center justify-center gap-0.5 text-[10px] sm:text-xs font-bold ${theme === "light"
+                              ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
+                              : "bg-emerald-950/30 text-emerald-400 border border-emerald-900/40"
+                              }`}>
+                              <svg data-encore-id="icon" role="img" aria-hidden="true" className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current flex-shrink-0" viewBox="0 0 24 24">
+                                <path d="M3.5 13.414a.999.999 0 0 1-.707-1.707l9.2-9.207 9.202 9.207a1 1 0 1 1-1.413 1.414L13 6.335V20.5a1 1 0 0 1-2 0V6.322l-6.794 6.799a.999.999 0 0 1-.707.293z"></path>
+                              </svg>
+                              <span>{album.rankShift}</span>
+                            </div>
                           ) : (
-                            <span className={`h-6 px-1.5 rounded-full flex items-center justify-center gap-0.5 text-[9px] font-bold ${
-                              theme === "light" ? "bg-red-55 text-red-600" : "bg-red-950/40 text-red-400 border border-red-900/30"
-                            }`}>
-                              ▼{Math.abs(album.rankShift)}
-                            </span>
+                            <div aria-label="Chart position moved down" className={`h-5 sm:h-6 px-1 sm:px-1.5 rounded-full flex items-center justify-center gap-0.5 text-[10px] sm:text-xs font-bold ${theme === "light"
+                              ? "bg-red-50 text-red-650 border border-red-200"
+                              : "bg-red-955/20 text-red-400 border border-red-900/40"
+                              }`}>
+                              <svg data-encore-id="icon" role="img" aria-hidden="true" className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current flex-shrink-0" viewBox="0 0 24 24">
+                                <path d="M3.5 10.586a1 1 0 0 0-.707 1.707l9.2 9.207 9.202-9.207a1 1 0 1 0-1.413-1.414L13 17.665V3.5a1 1 0 1 0-2 0v14.178l-6.794-6.8a1 1 0 0 0-.707-.292z"></path>
+                              </svg>
+                              <span>{typeof album.rankShift === "number" ? Math.abs(album.rankShift) : 0}</span>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1225,30 +1299,43 @@ export default function StreamsPage() {
                       <img
                         src={album.coverUrl}
                         alt={album.title}
-                        className={`w-14 h-14 rounded object-cover border flex-shrink-0 ${theme === "light" ? "border-neutral-200" : "border-neutral-900"}`}
+                        className={`w-10 h-10 sm:w-14 sm:h-14 rounded object-cover border flex-shrink-0 ${theme === "light" ? "border-neutral-200" : "border-neutral-900"}`}
                       />
-                      <div className="min-w-0">
-                        <span className={`text-base md:text-lg font-bold block leading-tight group-hover:underline truncate ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
+                      <div className="flex-1 min-w-0">
+                        <span className={`text-sm sm:text-base md:text-lg font-bold block leading-tight group-hover:underline truncate ${theme === "light" ? "text-neutral-955" : "text-white"}`}>
                           {album.title}
                         </span>
-                        <span className={`text-xs block mt-1 truncate ${theme === "light" ? "text-neutral-600" : "text-neutral-400"}`}>{album.year}</span>
+                        <span className={`text-[10px] sm:text-xs block mt-0.5 sm:mt-1 truncate ${theme === "light" ? "text-neutral-600" : "text-neutral-400"}`}>{album.year}</span>
                       </div>
                     </div>
 
-                    <div className="text-right font-mono flex-shrink-0">
-                      <span className={`text-base md:text-lg font-bold block ${theme === "light" ? "text-neutral-955" : "text-white"}`}>
+                    <div className="text-right font-mono flex-shrink-0 pl-1">
+                      <span className={`text-sm sm:text-base md:text-lg font-bold block ${theme === "light" ? "text-neutral-955" : "text-white"}`}>
                         {formatNumber(album.totalStreams)}
                       </span>
-                      <div className="flex items-center justify-end gap-2 mt-1">
-                        <span className={`text-xs font-semibold ${theme === "light" ? "text-neutral-700" : "text-neutral-300"}`}>
+                      <div className="flex items-center justify-end gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
+                        <span className={`text-[10px] sm:text-xs font-semibold ${theme === "light" ? "text-neutral-700" : "text-neutral-300"}`}>
                           +{formatNumber(album.dailyGain)}
                         </span>
                         {(() => {
                           const gainDisplay = getAlbumGainDisplay(album, language);
                           if (!gainDisplay || gainDisplay.diff === 0) return null;
+                          const isUp = gainDisplay.isUp;
                           return (
-                            <span className={`text-[10px] font-semibold flex items-center ${gainDisplay.isUp ? "text-green-500" : "text-red-400"}`}>
-                              {gainDisplay.isUp ? "▲" : "▼"} {gainDisplay.pctStr}%
+                            <span className={`text-[9px] sm:text-[10px] font-semibold flex items-center gap-0.5 ${isUp
+                              ? (theme === "light" ? "text-emerald-700" : "text-emerald-400")
+                              : (theme === "light" ? "text-red-600" : "text-red-400")
+                              }`}>
+                              {isUp ? (
+                                <svg data-encore-id="icon" role="img" aria-hidden="true" className="w-2 h-2 fill-current flex-shrink-0 mr-0.5" viewBox="0 0 24 24">
+                                  <path d="M3.5 13.414a.999.999 0 0 1-.707-1.707l9.2-9.207 9.202 9.207a1 1 0 1 1-1.413 1.414L13 6.335V20.5a1 1 0 0 1-2 0V6.322l-6.794 6.799a.999.999 0 0 1-.707.293z"></path>
+                                </svg>
+                              ) : (
+                                <svg data-encore-id="icon" role="img" aria-hidden="true" className="w-2 h-2 fill-current flex-shrink-0 mr-0.5" viewBox="0 0 24 24">
+                                  <path d="M3.5 10.586a1 1 0 0 0-.707 1.707l9.2 9.207 9.202-9.207a1 1 0 1 0-1.413-1.414L13 17.665V3.5a1 1 0 1 0-2 0v14.178l-6.794-6.8a1 1 0 0 0-.707-.292z"></path>
+                                </svg>
+                              )}
+                              <span>{gainDisplay.pctStr}%</span>
                             </span>
                           );
                         })()}
@@ -1261,11 +1348,10 @@ export default function StreamsPage() {
                   <div className="flex justify-center mt-6">
                     <button
                       onClick={() => setVisibleAlbumsCount(processedAlbums.length)}
-                      className={`px-8 py-3 rounded-full border text-xs font-bold transition-all cursor-pointer ${
-                        theme === "light"
-                          ? "border-neutral-300 hover:border-black text-neutral-800 hover:bg-neutral-50"
-                          : "border-panel-border/30 hover:border-rose text-mauve hover:text-white bg-wine-deep/10 hover:bg-wine-deep/20"
-                      }`}
+                      className={`px-8 py-3 rounded-full border text-xs font-bold transition-all cursor-pointer ${theme === "light"
+                        ? "border-neutral-300 hover:border-black text-neutral-800 hover:bg-neutral-50"
+                        : "border-panel-border/30 hover:border-rose text-mauve hover:text-white bg-wine-deep/10 hover:bg-wine-deep/20"
+                        }`}
                     >
                       {language === "pt"
                         ? `Ver mais (${processedAlbums.length - visibleAlbumsCount} mais)`
@@ -1283,8 +1369,8 @@ export default function StreamsPage() {
           <div className="space-y-4">
             {milestoneSubTab === "upcoming" ? (
               <div className="space-y-3">
-                <div className={`flex justify-between text-[10px] font-bold uppercase tracking-wider px-4 pb-3 border-b ${theme === "light" ? "text-neutral-500 border-neutral-200" : "text-neutral-500 border-neutral-900/60"}`}>
-                  <span>{language === "pt" ? "música" : "track"}</span>
+                <div className={`flex justify-between text-[10px] font-bold uppercase tracking-wider px-3 sm:px-4 pb-3 border-b ${theme === "light" ? "text-neutral-500 border-neutral-200" : "text-neutral-500 border-neutral-900/60"}`}>
+                  <span>{language === "pt" ? "música / álbum" : "track / album"}</span>
                   <span className="text-right">{language === "pt" ? "meta / previsão" : "target / forecast"}</span>
                 </div>
 
@@ -1293,63 +1379,87 @@ export default function StreamsPage() {
                     {language === "pt" ? "nenhuma meta futura encontrada." : "no upcoming milestones found."}
                   </div>
                 ) : (
-                  upcomingMilestones.map((item) => (
-                    <div
-                      key={item.id}
-                      onClick={() => setSelectedTrack(item as any)}
-                      className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded border transition-all cursor-pointer gap-4 group ${theme === "light" ? "border-transparent hover:border-neutral-305 hover:bg-neutral-50" : "border-transparent hover:border-neutral-805 hover:bg-neutral-950/60"}`}
-                    >
-                      <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <img
-                          src={item.coverUrl}
-                          alt={item.title}
-                          className={`w-14 h-14 rounded object-cover border flex-shrink-0 ${theme === "light" ? "border-neutral-205" : "border-neutral-905"}`}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <span className={`text-base md:text-lg font-bold block leading-tight group-hover:shop-underline-hover truncate ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
-                            {item.title}
-                          </span>
-                          <span className={`text-[10px] uppercase font-bold tracking-wider ${theme === "light" ? "text-neutral-500" : "text-mauve"} block mt-1`}>
-                            {language === "pt" ? "música" : "track"} • {item.artist}
-                          </span>
-                          
-                          {/* Progress bar */}
-                          <div className="flex items-center gap-3 mt-2">
-                            <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${theme === "light" ? "bg-neutral-200" : "bg-neutral-900"}`}>
-                              <div
-                                className={`h-full rounded-full ${theme === "light" ? "bg-black" : "bg-rose"}`}
-                                style={{ width: `${item.progressPercent}%` }}
-                              />
+                  <>
+                    {upcomingMilestones.slice(0, visibleMilestonesCount).map((item) => (
+                      <div
+                        key={`${item.type}-${item.id}`}
+                        onClick={() => {
+                          if (item.type === "track") {
+                            handleSelectTrack(item as any);
+                          } else {
+                            handleSelectAlbum(item as any);
+                          }
+                        }}
+                        className={`flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 rounded border transition-all cursor-pointer gap-3 sm:gap-4 group ${theme === "light" ? "border-transparent hover:border-neutral-300 hover:bg-neutral-50" : "border-transparent hover:border-neutral-800 hover:bg-neutral-950/60"}`}
+                      >
+                        <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                          <img
+                            src={item.coverUrl}
+                            alt={item.title}
+                            className={`w-10 h-10 sm:w-14 sm:h-14 rounded object-cover border flex-shrink-0 ${theme === "light" ? "border-neutral-200" : "border-neutral-900"}`}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <span className={`text-sm sm:text-base md:text-lg font-bold block leading-tight group-hover:shop-underline-hover truncate ${theme === "light" ? "text-neutral-955" : "text-white"}`}>
+                              {item.title}
+                            </span>
+                            <span className={`text-[10px] uppercase font-bold tracking-wider ${theme === "light" ? "text-neutral-500" : "text-mauve"} block mt-0.5 sm:mt-1`}>
+                              {language === "pt" ? (item.type === "track" ? "música" : "álbum") : item.type} • {item.artist}
+                            </span>
+
+                            {/* Progress bar */}
+                            <div className="flex items-center gap-2 mt-1 sm:mt-2">
+                              <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${theme === "light" ? "bg-neutral-200" : "bg-neutral-900"}`}>
+                                <div
+                                  className={`h-full rounded-full ${theme === "light" ? "bg-black" : "bg-rose"}`}
+                                  style={{ width: `${item.progressPercent}%` }}
+                                />
+                              </div>
+                              <span className="font-mono text-[10px] sm:text-xs font-bold leading-none">{item.progressPercent.toFixed(1)}%</span>
                             </div>
-                            <span className="font-mono text-xs font-bold leading-none">{item.progressPercent.toFixed(1)}%</span>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="text-left sm:text-right flex sm:flex-col justify-between sm:justify-center items-center sm:items-end font-mono">
-                        <div className="flex items-center gap-2">
-                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${theme === "light" ? "bg-black text-white" : "bg-rose text-floral-bg"}`}>
-                            {SURPASSED_TARGETS.find(t => t.value === item.milestone.milestoneTarget)?.label || "target"}
-                          </span>
-                          <span className={`text-xs ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
-                            {language === "pt" ? "falta " : ""}{formatNumber(item.streamsRemaining)}{language === "pt" ? "" : " to go"}
+                        <div className="text-left sm:text-right flex sm:flex-col justify-between sm:justify-center items-center sm:items-end font-mono">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${theme === "light" ? "bg-black text-white" : "bg-rose text-floral-bg"}`}>
+                              {SURPASSED_TARGETS.find(t => t.value === item.milestone.milestoneTarget)?.label || "target"}
+                            </span>
+                            <span className={`text-xs ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
+                              {language === "pt" ? "falta " : ""}{formatNumber(item.streamsRemaining)}{language === "pt" ? "" : " to go"}
+                            </span>
+                          </div>
+                          <span className={`text-xs font-serif lowercase mt-1 block ${theme === "light" ? "text-neutral-700" : "text-neutral-400"}`}>
+                            {item.daysToGoal === null ? (
+                              "velocity unknown"
+                            ) : (
+                              <>
+                                {getMilestoneDate(item.daysToGoal)}
+                                <span className="text-[10px] font-mono ml-1.5 opacity-80">
+                                  ({item.daysToGoal}d)
+                                </span>
+                              </>
+                            )}
                           </span>
                         </div>
-                        <span className={`text-xs font-serif lowercase mt-1 block ${theme === "light" ? "text-neutral-700" : "text-neutral-400"}`}>
-                          {item.daysToGoal === null ? (
-                            "velocity unknown"
-                          ) : (
-                            <>
-                              {getMilestoneDate(item.daysToGoal)}
-                              <span className="text-[10px] font-mono ml-1.5 opacity-80">
-                                ({item.daysToGoal}d)
-                              </span>
-                            </>
-                          )}
-                        </span>
                       </div>
-                    </div>
-                  ))
+                    ))}
+
+                    {upcomingMilestones.length > visibleMilestonesCount && (
+                      <div className="flex justify-center mt-6">
+                        <button
+                          onClick={() => setVisibleMilestonesCount(upcomingMilestones.length)}
+                          className={`px-8 py-3 rounded-full border text-xs font-bold transition-all cursor-pointer ${theme === "light"
+                            ? "border-neutral-300 hover:border-black text-neutral-800 hover:bg-neutral-50"
+                            : "border-panel-border/30 hover:border-rose text-mauve hover:text-white bg-wine-deep/10 hover:bg-wine-deep/20"
+                            }`}
+                        >
+                          {language === "pt"
+                            ? `Ver mais (${upcomingMilestones.length - visibleMilestonesCount} mais)`
+                            : `See more (${upcomingMilestones.length - visibleMilestonesCount} more)`}
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ) : (
@@ -1367,47 +1477,64 @@ export default function StreamsPage() {
 
                 {surpassedItems.length === 0 ? (
                   <div className={`text-center py-12 text-xs ${theme === "light" ? "text-neutral-500" : "text-neutral-500"}`}>
-                    {language === "pt" ? "nenhuma música superou esta meta ainda." : "no tracks have surpassed this milestone yet."}
+                    {language === "pt" ? "nenhum membro superou esta meta ainda." : "no members have surpassed this milestone yet."}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {surpassedItems.map((item) => (
-                      <div
-                        key={item.id}
-                        onClick={() => setSelectedTrack(item as any)}
-                        className={`flex items-center justify-between p-3.5 rounded border transition-all cursor-pointer group ${
-                          theme === "light" 
-                            ? "border-neutral-200 hover:border-black bg-neutral-50/50" 
-                            : "border-neutral-900 hover:border-rose bg-wine-deep/30"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3.5 min-w-0">
-                          <img
-                            src={item.coverUrl}
-                            alt={item.title}
-                            className={`w-12 h-12 rounded object-cover border flex-shrink-0 ${theme === "light" ? "border-neutral-200" : "border-neutral-900"}`}
-                          />
-                          <div className="min-w-0">
-                            <span className={`text-sm md:text-base font-bold block leading-snug group-hover:underline truncate ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
-                              {item.title}
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {surpassedItems.slice(0, visibleMilestonesCount).map((item) => (
+                        <div
+                          key={item.id}
+                          onClick={() => handleSelectTrack(item as any)}
+                          className={`flex items-center justify-between p-2.5 sm:p-3.5 rounded border transition-all cursor-pointer group ${theme === "light"
+                            ? "border-transparent hover:border-neutral-300 hover:bg-neutral-50"
+                            : "border-transparent hover:border-neutral-800 hover:bg-neutral-950/60"
+                            }`}
+                        >
+                          <div className="flex items-center gap-2 sm:gap-3.5 min-w-0">
+                            <img
+                              src={item.coverUrl}
+                              alt={item.title}
+                              className={`w-10 h-10 sm:w-12 sm:h-12 rounded object-cover border flex-shrink-0 ${theme === "light" ? "border-neutral-200" : "border-neutral-900"}`}
+                            />
+                            <div className="min-w-0">
+                              <span className={`text-xs sm:text-sm md:text-base font-bold block leading-snug group-hover:underline truncate ${theme === "light" ? "text-neutral-955" : "text-white"}`}>
+                                {item.title}
+                              </span>
+                              <span className={`text-[9px] uppercase font-bold tracking-wider ${theme === "light" ? "text-neutral-500" : "text-mauve"} block mt-0.5`}>
+                                {language === "pt" ? "música" : "track"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="text-right font-mono flex-shrink-0 flex items-center gap-1.5 sm:gap-2">
+                            <span className={`text-xs font-bold ${theme === "light" ? "text-neutral-955" : "text-rose"}`}>
+                              {formatNumber(item.totalStreams)}
                             </span>
-                            <span className={`text-[9px] uppercase font-bold tracking-wider ${theme === "light" ? "text-neutral-500" : "text-mauve"} block mt-0.5`}>
-                              {language === "pt" ? "música" : "track"}
+                            <span className={`px-1.5 py-0.5 text-[8px] font-bold rounded ${theme === "light" ? "bg-black text-white" : "bg-rose text-floral-bg"}`}>
+                              {SURPASSED_TARGETS.find(t => t.value === selectedSurpassedTarget)?.label || "passed"}
                             </span>
                           </div>
                         </div>
+                      ))}
+                    </div>
 
-                        <div className="text-right font-mono flex-shrink-0 flex items-center gap-2">
-                          <span className={`text-xs font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>
-                            {formatNumber(item.totalStreams)}
-                          </span>
-                          <span className={`px-1.5 py-0.5 text-[8px] font-bold rounded ${theme === "light" ? "bg-black text-white" : "bg-rose text-floral-bg"}`}>
-                            {SURPASSED_TARGETS.find(t => t.value === selectedSurpassedTarget)?.label || "passed"}
-                          </span>
-                        </div>
+                    {surpassedItems.length > visibleMilestonesCount && (
+                      <div className="flex justify-center mt-6">
+                        <button
+                          onClick={() => setVisibleMilestonesCount(surpassedItems.length)}
+                          className={`px-8 py-3 rounded-full border text-xs font-bold transition-all cursor-pointer ${theme === "light"
+                            ? "border-neutral-300 hover:border-black text-neutral-800 hover:bg-neutral-50"
+                            : "border-panel-border/30 hover:border-rose text-mauve hover:text-white bg-wine-deep/10 hover:bg-wine-deep/20"
+                            }`}
+                        >
+                          {language === "pt"
+                            ? `Ver mais (${surpassedItems.length - visibleMilestonesCount} mais)`
+                            : `See more (${surpassedItems.length - visibleMilestonesCount} more)`}
+                        </button>
                       </div>
-                    ))}
-                  </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -1594,11 +1721,10 @@ export default function StreamsPage() {
                           setSelectedAlbum(null);
                           setSelectedTrack(track);
                         }}
-                        className={`grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-2.5 items-center p-2 rounded transition-all cursor-pointer border ${
-                          theme === "light"
-                            ? "hover:bg-neutral-100 border-transparent hover:border-neutral-200 text-neutral-900"
-                            : "hover:bg-wine-deep/60 border-transparent hover:border-panel-border text-rose"
-                        }`}
+                        className={`grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-2.5 items-center p-2 rounded transition-all cursor-pointer border ${theme === "light"
+                          ? "hover:bg-neutral-100 border-transparent hover:border-neutral-200 text-neutral-900"
+                          : "hover:bg-wine-deep/60 border-transparent hover:border-panel-border text-rose"
+                          }`}
                       >
                         <span className={`text-[10px] font-mono w-4 text-right ${theme === "light" ? "text-neutral-400" : "text-mauve/60"}`}>
                           {idx + 1}
@@ -1654,6 +1780,14 @@ export default function StreamsPage() {
                 {t("streams.close")}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {isLoadingDetail && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center backdrop-blur-sm animate-fade-in">
+          <div className="flex flex-col items-center gap-3 p-6 rounded-lg bg-wine border border-panel-border/30 text-rose shadow-2xl">
+            <RefreshCw className="w-8 h-8 animate-spin" />
+            <span className="text-xs font-mono">{language === "pt" ? "carregando detalhes..." : "loading details..."}</span>
           </div>
         </div>
       )}

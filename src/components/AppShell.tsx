@@ -13,7 +13,9 @@ import {
   Settings,
   Sun,
   Moon,
-  LogOut
+  LogOut,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -22,6 +24,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const { language, setLanguage, t } = useLanguage();
   const pathname = usePathname();
   const router = useRouter();
+
+  const [isScrolledDown, setIsScrolledDown] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolledDown(window.scrollY > 300);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const handleScrollToggle = () => {
+    if (window.scrollY > 300) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
+    }
+  };
 
   // Helper to determine the active tab
   const getActiveTab = () => {
@@ -41,7 +61,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-floral-bg text-floral-fg transition-colors duration-200 pb-28">
+    <div className="flex-1 flex flex-col min-h-screen bg-floral-bg text-floral-fg transition-colors duration-200 pb-12 md:pb-28">
       {/* TOP UTILITY BAR (Login / Theme) */}
       <div className="w-full bg-wine-deep px-4 md:px-8 py-2.5 flex justify-between items-center text-xs text-mauve border-b border-panel-border">
         <div>
@@ -115,7 +135,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* FLOATING MOBILE/DESKTOP BOTTOM NAVIGATION BAR */}
-      <div className="floating-bottom-nav px-6 py-3 flex items-center gap-6 md:gap-10">
+      <div className="floating-bottom-nav px-6 py-3 hidden md:flex items-center gap-6 md:gap-10">
         {[
           { id: "guide", label: t("nav.guide"), icon: BookOpen, path: "/guide" },
           { id: "streams", label: t("nav.streams"), icon: Music, path: "/streams" },
@@ -141,7 +161,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* FLOATING QUICK SETTINGS DOCK */}
-      <div className="fixed right-4 bottom-24 md:bottom-8 z-50 flex flex-col gap-3">
+      <div className="fixed right-4 bottom-6 md:bottom-8 z-50 flex flex-col gap-3">
+        {/* Scroll to top/bottom button (mobile only) */}
+        <button
+          onClick={handleScrollToggle}
+          className="md:hidden w-11 h-11 rounded-full flex items-center justify-center shadow-lg border backdrop-blur-md transition-all duration-250 hover:scale-110 cursor-pointer bg-white/95 border-neutral-300 text-neutral-900 hover:bg-neutral-100 dark:bg-neutral-900/95 dark:border-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          title={isScrolledDown ? (language === "pt" ? "Ir para o topo" : "Scroll to top") : (language === "pt" ? "Ir para o final" : "Scroll to bottom")}
+        >
+          {isScrolledDown ? (
+            <ArrowUp className="w-4 h-4 text-rose" />
+          ) : (
+            <ArrowDown className="w-4 h-4 text-rose" />
+          )}
+        </button>
+
         {/* Language button */}
         <button
           onClick={() => setLanguage(language === "en" ? "pt" : "en")}
