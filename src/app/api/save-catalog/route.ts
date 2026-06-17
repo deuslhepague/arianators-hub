@@ -106,9 +106,19 @@ export async function POST(req: Request) {
       updatedAt: new Date().toISOString()
     }, { merge: true });
 
-    // Fetch existing keys for deletion check
+    // Fetch existing keys for deletion check and history merging
     const existingTracksSnap = await db.collection("catalog").doc("config").collection("tracks").get();
     const existingAlbumsSnap = await db.collection("catalog").doc("config").collection("albums").get();
+
+    const existingTracksMap = new Map<string, any>();
+    existingTracksSnap.forEach(doc => {
+      existingTracksMap.set(doc.id, doc.data());
+    });
+
+    const existingAlbumsMap = new Map<string, any>();
+    existingAlbumsSnap.forEach(doc => {
+      existingAlbumsMap.set(doc.id, doc.data());
+    });
 
     const newTrackIds = new Set(tracks.map(t => t.id).filter(Boolean));
     const newAlbumIds = new Set(albums.map(a => a.id).filter(Boolean));
@@ -130,14 +140,32 @@ export async function POST(req: Request) {
     tracks.forEach(track => {
       if (track && track.id) {
         const ref = db.collection("catalog").doc("config").collection("tracks").doc(track.id);
-        ops.push({ type: 'set', ref, data: track });
+        const existingTrack = existingTracksMap.get(track.id);
+        const mergedStreams = {
+          ...(existingTrack?.streams || {}),
+          ...(track.streams || {})
+        };
+        const dataToSave = {
+          ...track,
+          streams: mergedStreams
+        };
+        ops.push({ type: 'set', ref, data: dataToSave });
       }
     });
 
     albums.forEach(album => {
       if (album && album.id) {
         const ref = db.collection("catalog").doc("config").collection("albums").doc(album.id);
-        ops.push({ type: 'set', ref, data: album });
+        const existingAlbum = existingAlbumsMap.get(album.id);
+        const mergedStreams = {
+          ...(existingAlbum?.streams || {}),
+          ...(album.streams || {})
+        };
+        const dataToSave = {
+          ...album,
+          streams: mergedStreams
+        };
+        ops.push({ type: 'set', ref, data: dataToSave });
       }
     });
 

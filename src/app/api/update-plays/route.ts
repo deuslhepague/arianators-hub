@@ -1,8 +1,44 @@
 import { NextResponse } from "next/server";
 import { getSpotifyToken, fetchSpotify } from "@/lib/spotify-token";
 import { addStreamHistoryEntry, getTodayDateStr, StreamHistory } from "@/lib/streamHistory";
+import * as admin from "firebase-admin";
+import * as fs from "fs";
+import * as path from "path";
+import { verifyAdminSessionToken } from "@/lib/adminAuth";
 
 export const dynamic = "force-dynamic";
+
+// Inicializar Firebase Admin SDK com credenciais do arquivo JSON local
+function getAdminApp() {
+  if (admin.apps.length > 0) {
+    return admin.app();
+  }
+
+  try {
+    const credPath = path.join(
+      process.cwd(),
+      "arianatorshub-firebase-adminsdk-fbsvc-3373df087d.json"
+    );
+
+    if (!fs.existsSync(credPath)) {
+      throw new Error(`Firebase credentials file not found at ${credPath}`);
+    }
+
+    const serviceAccount = JSON.parse(
+      fs.readFileSync(credPath, "utf-8")
+    );
+
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      projectId: "arianatorshub"
+    });
+
+    return admin.app();
+  } catch (error: any) {
+    console.error("Firebase Admin initialization error:", error.message);
+    throw error;
+  }
+}
 
 function getTargetUpdateDate(previousHistory: StreamHistory | undefined, todayStr: string): string {
   if (!previousHistory) return todayStr;
@@ -53,12 +89,28 @@ interface SpotifyAlbumInput {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const tracks: SpotifyTrackInput[] = body.tracks || [];
-    const albums: SpotifyAlbumInput[] = body.albums || [];
+    const authHeader = req.headers.get("authorization");
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const authResult = verifyAdminSessionToken(token);
+
+    if (!authResult.valid) {
+      return NextResponse.json(
+        { success: false, error: authResult.error || "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const app = getAdminApp();
+    const db = admin.firestore(app);
+
+    // Load catalog directly from Firestore
+    const tracksSnap = await db.collection("catalog").doc("config").collection("tracks").get();
+    const albumsSnap = await db.collection("catalog").doc("config").collection("albums").get();
+    const tracks: SpotifyTrackInput[] = tracksSnap.docs.map(doc => doc.data() as SpotifyTrackInput);
+    const albums: SpotifyAlbumInput[] = albumsSnap.docs.map(doc => doc.data() as SpotifyAlbumInput);
 
     // 1. Fetch Spotify token dynamically
-    const token = await getSpotifyToken();
+    const spotifyToken = await getSpotifyToken();
 
     // Maps to store playcount data fetched from Spotify
     const trackPlaycounts: Record<string, number> = {};
@@ -78,7 +130,7 @@ export async function POST(req: Request) {
             "accept": "application/json",
             "accept-language": "pt-BR",
             "app-platform": "WebPlayer",
-            "authorization": `Bearer ${token}`,
+            "authorization": `Bearer ${spotifyToken}`,
             "content-type": "application/json;charset=UTF-8",
             "origin": "https://open.spotify.com",
             "referer": "https://open.spotify.com/",
@@ -119,19 +171,11 @@ export async function POST(req: Request) {
       if (t.spotifyTrackId && resolvedAlbumIdsMap[t.spotifyTrackId]) {
         uniqueAlbumIds.add(resolvedAlbumIdsMap[t.spotifyTrackId]);
       }
-      // Also look up albums for alternative IDs
-      if (t.alternativeIds) {
-        t.alternativeIds.forEach(altId => {
-          // If altId is a track ID (e.g. 22-char string), we could also add it if we know its album
-          // But for now, we assume alternative track IDs are either in the same albums or we can do a fallback resolve
-        });
-      }
     });
 
     // Add album IDs from the albums section
     albums.forEach(a => {
       const albumId = a.spotifyAlbumId || a.id;
-      // Ensure it's a Spotify album ID (e.g. not our mock "positions-album" slug, but a real 22-char Spotify ID)
       if (albumId && albumId.length === 22) {
         uniqueAlbumIds.add(albumId);
       }
@@ -160,7 +204,7 @@ export async function POST(req: Request) {
             "accept": "application/json",
             "accept-language": "pt-BR",
             "app-platform": "WebPlayer",
-            "authorization": `Bearer ${token}`,
+            "authorization": `Bearer ${spotifyToken}`,
             "content-type": "application/json;charset=UTF-8",
             "origin": "https://open.spotify.com",
             "referer": "https://open.spotify.com/",
@@ -197,9 +241,7 @@ export async function POST(req: Request) {
 
               if (id) {
                 trackPlaycounts[id] = playcount;
-                // Exclude "The Way - Spanglish Version" (3HAQ4fEd3opmo09LJIHOX2) because it shares/duplicates the playcount of the standard version
                 if (id !== "3HAQ4fEd3opmo09LJIHOX2") {
-                  // If it is a participation album, only sum tracks where Ariana Grande is an artist.
                   if (!albumIsParticipation || isArianaTrack) {
                     albumSum += playcount;
                   }
@@ -209,8 +251,6 @@ export async function POST(req: Request) {
           });
 
           albumPlaycounts[albumId] = albumSum;
-        } else {
-          console.error(`Spotify Pathfinder returned error status ${res.status} for album ${albumId}`);
         }
       } catch (err) {
         console.error(`Error querying Pathfinder for album ${albumId}:`, err);
@@ -224,12 +264,10 @@ export async function POST(req: Request) {
       const previousHistory = track.streams;
       let mainPlaycount = 0;
       
-      // Get playcount for main track ID
       if (track.spotifyTrackId && trackPlaycounts[track.spotifyTrackId]) {
         mainPlaycount = trackPlaycounts[track.spotifyTrackId];
       }
 
-      // Get playcounts from alternative track IDs
       let maxAltPlaycount = 0;
       if (track.alternativeIds) {
         track.alternativeIds.forEach(altId => {
@@ -247,7 +285,6 @@ export async function POST(req: Request) {
           track.gainDiff = diff - track.dailyGain;
           track.dailyGain = diff;
         } else if (diff < 0) {
-          // Self-healing: Spotify count is lower than DB count (due to a previous corruption/bug)
           track.dailyGain = 0;
           track.gainDiff = 0;
         }
@@ -287,10 +324,84 @@ export async function POST(req: Request) {
       return album;
     });
 
+    // 7. Save updated tracks and albums back to Firestore catalog config
+    await db.collection("catalog").doc("config").set({
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    const ops: { type: 'set', ref: admin.firestore.DocumentReference, data: any }[] = [];
+    updatedTracks.forEach(track => {
+      if (track && track.id) {
+        const ref = db.collection("catalog").doc("config").collection("tracks").doc(track.id);
+        ops.push({ type: 'set', ref, data: track });
+      }
+    });
+    updatedAlbums.forEach(album => {
+      if (album && album.id) {
+        const ref = db.collection("catalog").doc("config").collection("albums").doc(album.id);
+        ops.push({ type: 'set', ref, data: album });
+      }
+    });
+
+    const CHUNK_SIZE = 400;
+    for (let i = 0; i < ops.length; i += CHUNK_SIZE) {
+      const chunk = ops.slice(i, i + CHUNK_SIZE);
+      const batch = db.batch();
+      chunk.forEach(op => {
+        batch.set(op.ref, op.data);
+      });
+      await batch.commit();
+    }
+
+    // 8. Trigger statsfm-users sync to refresh user charts if needed (non-blocking)
+    try {
+      const expectedPasscode = process.env.ADMIN_PASSCODE || process.env.ADMIN_SECRET;
+      const syncUrl = new URL("/api/spotify-sync", req.url);
+      fetch(syncUrl, {
+        method: "POST",
+        headers: {
+          "x-admin-passcode": expectedPasscode || ""
+        }
+      }).catch(err => console.error("Error triggering spotify-sync:", err));
+    } catch (err) {
+      console.error("Error setting up sync call:", err);
+    }
+
+    // 9. Slice stream history before returning to client to save bandwidth
+    const slicedTracks = updatedTracks.map(t => {
+      const track = { ...t };
+      const streams = track.streams;
+      if (streams) {
+        const sortedDates = Object.keys(streams).sort();
+        const lastTwo = sortedDates.slice(-2);
+        const sliced: Record<string, any> = {};
+        lastTwo.forEach(date => {
+          sliced[date] = streams[date];
+        });
+        track.streams = sliced;
+      }
+      return track;
+    });
+
+    const slicedAlbums = updatedAlbums.map(a => {
+      const album = { ...a };
+      const streams = album.streams;
+      if (streams) {
+        const sortedDates = Object.keys(streams).sort();
+        const lastTwo = sortedDates.slice(-2);
+        const sliced: Record<string, any> = {};
+        lastTwo.forEach(date => {
+          sliced[date] = streams[date];
+        });
+        album.streams = sliced;
+      }
+      return album;
+    });
+
     return NextResponse.json({
       success: true,
-      tracks: updatedTracks,
-      albums: updatedAlbums
+      tracks: slicedTracks,
+      albums: slicedAlbums
     });
 
   } catch (err: any) {

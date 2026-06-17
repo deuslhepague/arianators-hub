@@ -756,17 +756,23 @@ export default function AdminPanel() {
     setUpdatingPlays(true);
     showStatus(language === "pt" ? "Conectando ao Spotify e atualizando plays..." : "Connecting to Spotify and updating play counts...");
     try {
+      const token = sessionStorage.getItem("arianator_admin_token");
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const res = await fetch("/api/update-plays", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tracks, albums }),
+        headers
       });
       if (!res.ok) throw new Error("Failed to update plays");
       const data = await res.json();
       if (data.success) {
         setTracks(data.tracks);
         setAlbums(data.albums);
-        saveAdminConfig(data.tracks, data.albums);
         showStatus(language === "pt" ? "Plays atualizados com sucesso via Spotify Partner API!" : "Plays updated successfully via Spotify Partner API!");
       } else {
         throw new Error(data.error || "Unknown error");
