@@ -3,6 +3,8 @@ import * as admin from "firebase-admin";
 import * as fs from "fs";
 import * as path from "path";
 import { verifyAdminSessionToken } from "@/lib/adminAuth";
+import { calculateForecast } from "@/lib/forecasting";
+import { getMilestoneForStreams } from "@/lib/milestones";
 
 // Inicializar Firebase Admin SDK com credenciais do arquivo JSON local
 function getAdminApp() {
@@ -61,6 +63,18 @@ export async function GET(req: Request) {
 
     const tracks = tracksSnap.docs.map(doc => {
       const data = doc.data();
+
+      // Calculate forecasting using full history on the server
+      const milestone = getMilestoneForStreams(data.totalStreams || 0);
+      const forecast = calculateForecast(
+        data.streams,
+        data.totalStreams || 0,
+        milestone.milestoneTarget,
+        data.dailyGain || data.avgDailyGain || 0
+      );
+      data.daysToGoal = forecast.daysToGoal;
+      data.dailyPace = forecast.dailyVelocity;
+
       if (data.streams) {
         const sortedDates = Object.keys(data.streams).sort();
         const lastTwo = sortedDates.slice(-2);
@@ -74,6 +88,18 @@ export async function GET(req: Request) {
     });
     const albums = albumsSnap.docs.map(doc => {
       const data = doc.data();
+
+      // Calculate forecasting using full history on the server
+      const milestone = getMilestoneForStreams(data.totalStreams || 0);
+      const forecast = calculateForecast(
+        data.streams,
+        data.totalStreams || 0,
+        milestone.milestoneTarget,
+        data.dailyGain || 0
+      );
+      data.daysToGoal = forecast.daysToGoal;
+      data.dailyPace = forecast.dailyVelocity;
+
       if (data.streams) {
         const sortedDates = Object.keys(data.streams).sort();
         const lastTwo = sortedDates.slice(-2);

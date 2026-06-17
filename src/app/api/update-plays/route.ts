@@ -5,6 +5,8 @@ import * as admin from "firebase-admin";
 import * as fs from "fs";
 import * as path from "path";
 import { verifyAdminSessionToken } from "@/lib/adminAuth";
+import { calculateForecast } from "@/lib/forecasting";
+import { getMilestoneForStreams } from "@/lib/milestones";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +75,8 @@ interface SpotifyTrackInput {
   spotifyTrackId?: string;
   spotifyAlbumId?: string;
   streams?: StreamHistory;
+  daysToGoal?: number | null;
+  dailyPace?: number;
 }
 
 interface SpotifyAlbumInput {
@@ -85,6 +89,8 @@ interface SpotifyAlbumInput {
   spotifyAlbumId?: string;
   isParticipation?: boolean;
   streams?: StreamHistory;
+  daysToGoal?: number | null;
+  dailyPace?: number;
 }
 
 export async function POST(req: Request) {
@@ -367,9 +373,20 @@ export async function POST(req: Request) {
       console.error("Error setting up sync call:", err);
     }
 
-    // 9. Slice stream history before returning to client to save bandwidth
+    // 9. Slice stream history before returning to client to save bandwidth, pre-calculating forecasts
     const slicedTracks = updatedTracks.map(t => {
       const track = { ...t };
+
+      const milestone = getMilestoneForStreams(track.totalStreams || 0);
+      const forecast = calculateForecast(
+        track.streams,
+        track.totalStreams || 0,
+        milestone.milestoneTarget,
+        track.dailyGain || track.avgDailyGain || 0
+      );
+      track.daysToGoal = forecast.daysToGoal;
+      track.dailyPace = forecast.dailyVelocity;
+
       const streams = track.streams;
       if (streams) {
         const sortedDates = Object.keys(streams).sort();
@@ -385,6 +402,17 @@ export async function POST(req: Request) {
 
     const slicedAlbums = updatedAlbums.map(a => {
       const album = { ...a };
+
+      const milestone = getMilestoneForStreams(album.totalStreams || 0);
+      const forecast = calculateForecast(
+        album.streams,
+        album.totalStreams || 0,
+        milestone.milestoneTarget,
+        album.dailyGain || 0
+      );
+      album.daysToGoal = forecast.daysToGoal;
+      album.dailyPace = forecast.dailyVelocity;
+
       const streams = album.streams;
       if (streams) {
         const sortedDates = Object.keys(streams).sort();

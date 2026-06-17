@@ -41,6 +41,8 @@ interface TrackStat {
   streams?: Record<string, { total: number; daily: number | null }>;
   rank?: number;
   rankShift?: number | "new" | null;
+  daysToGoal?: number | null;
+  dailyPace?: number;
 }
 
 interface AlbumStat {
@@ -55,6 +57,8 @@ interface AlbumStat {
   tracklist?: string[];
   rank?: number;
   rankShift?: number | "new" | null;
+  daysToGoal?: number | null;
+  dailyPace?: number;
 }
 
 type StreamTab = "albums" | "tracks" | "milestones";
@@ -387,20 +391,28 @@ export default function StreamsPage() {
         const streamsRemaining = getStreamsRemaining(item.totalStreams, milestone.milestoneTarget);
 
         const dailyPace = item.dailyGain || item.avgDailyGain || 0;
-        const forecast = calculateForecast(
-          item.streams,
-          item.totalStreams,
-          milestone.milestoneTarget,
-          dailyPace
-        );
+        
+        let finalDaysToGoal = item.daysToGoal;
+        let finalDailyPace = item.dailyPace;
+
+        if (finalDaysToGoal === undefined || finalDailyPace === undefined) {
+          const forecast = calculateForecast(
+            item.streams,
+            item.totalStreams,
+            milestone.milestoneTarget,
+            dailyPace
+          );
+          if (finalDaysToGoal === undefined) finalDaysToGoal = forecast.daysToGoal;
+          if (finalDailyPace === undefined) finalDailyPace = forecast.dailyVelocity;
+        }
 
         return {
           ...item,
           milestone,
           progressPercent,
           streamsRemaining,
-          daysToGoal: forecast.daysToGoal,
-          dailyPace: forecast.dailyVelocity,
+          daysToGoal: finalDaysToGoal,
+          dailyPace: finalDailyPace,
         };
       })
       .filter(item => item.progressPercent < 100)
