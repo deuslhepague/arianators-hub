@@ -53,6 +53,8 @@ interface AlbumStat {
   dailyGain: number;
   coverUrl: string;
   spotifyAlbumId?: string;
+  isParticipation?: boolean;
+  type?: string;
   streams?: Record<string, { total: number; daily: number | null }>;
   tracklist?: string[];
   rank?: number;
@@ -219,6 +221,7 @@ export default function StreamsPage() {
   const [albumSortBy, setAlbumSortBy] = useState<"daily" | "total" | "year" | "pct">("total");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false);
+  const [albumTypeFilter, setAlbumTypeFilter] = useState<"all" | "studio" | "ep" | "compilation" | "other">("studio");
 
   // Visible item counts (10 by default)
   const [visibleTracksCount, setVisibleTracksCount] = useState(10);
@@ -232,7 +235,7 @@ export default function StreamsPage() {
 
   React.useEffect(() => {
     setVisibleAlbumsCount(10);
-  }, [searchQuery, albumSortBy, sortDirection, streamTab]);
+  }, [searchQuery, albumSortBy, sortDirection, streamTab, albumTypeFilter]);
 
   // Selected Track for Milestones Modal
   const [selectedTrack, setSelectedTrack] = useState<TrackStat | null>(null);
@@ -528,7 +531,26 @@ export default function StreamsPage() {
   }, [tracks, sortBy, sortDirection, language]);
 
   const rankedAlbums = useMemo(() => {
-    const todaySorted = [...albums];
+    let filteredList = [...albums];
+    if (albumTypeFilter !== "all") {
+      filteredList = filteredList.filter((a) => {
+        const type = a.type || (
+          a.isParticipation ? "compilation" :
+          (
+            a.title.toLowerCase().includes("a cappella") ||
+            a.title.toLowerCase().includes("instrumental") ||
+            a.title.toLowerCase().includes("remix") ||
+            a.title.toLowerCase().includes("live") ||
+            a.title.toLowerCase().includes("sped up") ||
+            a.title.toLowerCase().includes("slowed") ||
+            a.title.toLowerCase().includes("acapella")
+          ) ? "other" : "studio"
+        );
+        return type === albumTypeFilter;
+      });
+    }
+
+    const todaySorted = [...filteredList];
     todaySorted.sort((a, b) => {
       let valA = 0;
       let valB = 0;
@@ -551,7 +573,7 @@ export default function StreamsPage() {
     });
 
     const allDates = new Set<string>();
-    albums.forEach(a => {
+    filteredList.forEach(a => {
       if (a.streams) {
         Object.keys(a.streams).forEach(d => allDates.add(d));
       }
@@ -565,7 +587,7 @@ export default function StreamsPage() {
       const prevDate = sortedDates[sortedDates.length - 2];
       const prevPrevDate = sortedDates.length >= 3 ? sortedDates[sortedDates.length - 3] : null;
 
-      yesterdaySorted = [...albums];
+      yesterdaySorted = [...filteredList];
       yesterdaySorted.sort((a, b) => {
         let valA = 0;
         let valB = 0;
@@ -620,7 +642,7 @@ export default function StreamsPage() {
         rankShift
       };
     });
-  }, [albums, albumSortBy, sortDirection, language]);
+  }, [albums, albumSortBy, sortDirection, language, albumTypeFilter]);
 
   const processedTracks = useMemo(() => {
     let result = [...rankedTracks];
@@ -713,22 +735,31 @@ export default function StreamsPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* DYNAMIC HERO STATS BANNER */}
-      <div className={`glass-panel p-6 flex flex-col md:flex-row items-center gap-6 ${theme === "light" ? "bg-white border-neutral-200" : "bg-wine-deep/40 border-panel-border/30"}`}>
+      <div className="neobrutal-card-rose p-6 flex flex-col md:flex-row items-center gap-6">
         {/* Left: Album cover of most streamed album or dynamic artist banner */}
         {/* Left: Artist Image */}
-        <div className="relative w-full md:w-44 h-44 flex-shrink-0 overflow-hidden rounded border border-panel-border/10">
+        <div className="relative w-full md:w-44 h-44 flex-shrink-0 overflow-hidden border-2 border-black dark:border-white shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
+          {/* Mobile Image */}
+          <img
+            src="https://i.scdn.co/image/ab67618600001016e1732cadcb123dede061baa1"
+            alt="Ariana Grande"
+            className="w-full h-full object-cover filter brightness-95 md:hidden"
+          />
+          {/* Desktop Image */}
           <img
             src="https://i.scdn.co/image/ab67616d0000b273b622d42c30697e1e1414343c"
             alt="Ariana Grande"
-            className="w-full h-full object-cover filter brightness-95"
+            className="w-full h-full object-cover filter brightness-95 hidden md:block"
           />
         </div>
 
         {/* Middle: Global Stats */}
         <div className="flex-1 min-w-0 py-1">
-          <span className="text-[10px] font-serif uppercase tracking-widest text-mauve block mb-0.5">
-            {language === "pt" ? "estatísticas da artista" : "artist statistics"}
-          </span>
+          <div className="mb-2">
+            <span className="neobrutal-sticker neobrutal-sticker-rose">
+              {language === "pt" ? "estatísticas da artista" : "artist statistics"}
+            </span>
+          </div>
           <h2 className="text-2xl md:text-3xl font-serif text-rose font-bold mb-1.5 tracking-wider">
             Ariana Grande
           </h2>
@@ -769,13 +800,13 @@ export default function StreamsPage() {
         </div>
 
         {/* Right: Key highlights cards */}
-        <div className="w-full md:w-72 flex flex-col gap-2 flex-shrink-0">
+        <div className="w-full md:w-72 flex flex-col gap-3 flex-shrink-0">
           {/* Highlight 1: Most Streamed Song */}
           {globalStats.mostStreamedTrack && (
-            <div className={`p-2.5 rounded border border-panel-border/15 flex items-center gap-3 ${theme === "light" ? "bg-neutral-50/60" : "bg-wine-deep/20"}`}>
-              <img src={globalStats.mostStreamedTrack.coverUrl} alt={globalStats.mostStreamedTrack.title} className="w-9 h-9 rounded object-cover border border-panel-border/10" />
+            <div className="p-2.5 border-2 border-black dark:border-white bg-panel-bg flex items-center gap-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
+              <img src={globalStats.mostStreamedTrack.coverUrl} alt={globalStats.mostStreamedTrack.title} className="w-9 h-9 object-cover border border-black dark:border-white" />
               <div className="flex-1 min-w-0">
-                <span className="text-[8px] uppercase tracking-widest text-mauve block leading-none">{language === "pt" ? "música mais ouvida" : "most streamed song"}</span>
+                <span className="text-[8px] uppercase tracking-widest text-mauve block leading-none font-bold">{language === "pt" ? "música mais ouvida" : "most streamed song"}</span>
                 <span className="text-xs font-serif font-bold block truncate leading-tight mt-1 text-rose lowercase">{globalStats.mostStreamedTrack.title}</span>
                 <span className="text-[10px] font-mono text-mauve leading-none block mt-0.5">{formatNumber(globalStats.mostStreamedTrack.totalStreams)}</span>
               </div>
@@ -784,10 +815,10 @@ export default function StreamsPage() {
 
           {/* Highlight 2: Biggest Daily Gainer */}
           {globalStats.biggestDailyGainer && (
-            <div className={`p-2.5 rounded border border-panel-border/15 flex items-center gap-3 ${theme === "light" ? "bg-neutral-50/60" : "bg-wine-deep/20"}`}>
-              <img src={globalStats.biggestDailyGainer.coverUrl} alt={globalStats.biggestDailyGainer.title} className="w-9 h-9 rounded object-cover border border-panel-border/10" />
+            <div className="p-2.5 border-2 border-black dark:border-white bg-panel-bg flex items-center gap-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
+              <img src={globalStats.biggestDailyGainer.coverUrl} alt={globalStats.biggestDailyGainer.title} className="w-9 h-9 object-cover border border-black dark:border-white" />
               <div className="flex-1 min-w-0">
-                <span className="text-[8px] uppercase tracking-widest text-mauve block leading-none">{language === "pt" ? "maior ganho diário" : "biggest daily gainer"}</span>
+                <span className="text-[8px] uppercase tracking-widest text-mauve block leading-none font-bold">{language === "pt" ? "maior ganho diário" : "biggest daily gainer"}</span>
                 <span className="text-xs font-serif font-bold block truncate leading-tight mt-1 text-rose">{globalStats.biggestDailyGainer.title}</span>
                 <span className="text-[10px] font-mono text-emerald-500 font-semibold leading-none block mt-0.5">+{formatNumber(globalStats.biggestDailyGainer.dailyGain)}</span>
               </div>
@@ -796,10 +827,10 @@ export default function StreamsPage() {
 
           {/* Highlight 3: Biggest % Gainer */}
           {globalStats.biggestPctGainerTrack && (
-            <div className={`p-2.5 rounded border border-panel-border/15 flex items-center gap-3 ${theme === "light" ? "bg-neutral-50/60" : "bg-wine-deep/20"}`}>
-              <img src={globalStats.biggestPctGainerTrack.coverUrl} alt={globalStats.biggestPctGainerTrack.title} className="w-9 h-9 rounded object-cover border border-panel-border/10" />
+            <div className="p-2.5 border-2 border-black dark:border-white bg-panel-bg flex items-center gap-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
+              <img src={globalStats.biggestPctGainerTrack.coverUrl} alt={globalStats.biggestPctGainerTrack.title} className="w-9 h-9 object-cover border border-black dark:border-white" />
               <div className="flex-1 min-w-0">
-                <span className="text-[8px] uppercase tracking-widest text-mauve block leading-none">{language === "pt" ? "maior crescimento %" : "biggest % gainer"}</span>
+                <span className="text-[8px] uppercase tracking-widest text-mauve block leading-none font-bold">{language === "pt" ? "maior crescimento %" : "biggest % gainer"}</span>
                 <span className="text-xs font-serif font-bold block truncate leading-tight mt-1 text-rose lowercase">{globalStats.biggestPctGainerTrack.title}</span>
                 <span className="text-[10px] font-mono text-emerald-500 font-semibold leading-none block mt-0.5">+{globalStats.biggestPctGainerTrack.pctChange.toFixed(1)}%</span>
               </div>
@@ -808,32 +839,32 @@ export default function StreamsPage() {
         </div>
       </div>
 
-      <div className={`glass-panel p-6 lg:p-8 ${theme === "light" ? "bg-white" : "bg-neutral-950/10"}`}>
+      <div className="border-2 border-black dark:border-white p-6 lg:p-8 bg-panel-bg shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
         {/* Segment control */}
-        <div className={`flex p-1 border max-w-sm mb-6 rounded ${theme === "light" ? "bg-neutral-100 border-neutral-200" : "bg-neutral-950 border-neutral-900"}`}>
+        <div className="flex border-2 border-black dark:border-white max-w-sm mb-6 bg-panel-bg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
           <button
             onClick={() => setStreamTab("albums")}
-            className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider rounded transition-all cursor-pointer ${streamTab === "albums"
-              ? (theme === "light" ? "bg-black text-white font-extrabold" : "bg-white text-black font-extrabold")
-              : (theme === "light" ? "text-neutral-500 hover:text-black" : "text-neutral-400 hover:text-white")
+            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border-r-2 border-black dark:border-white last:border-r-0 ${streamTab === "albums"
+              ? "bg-black text-white dark:bg-white dark:text-black font-extrabold"
+              : "text-neutral-500 dark:text-mauve hover:bg-neutral-100 dark:hover:bg-neutral-900"
               }`}
           >
             {language === "pt" ? "álbuns" : "albums"}
           </button>
           <button
             onClick={() => setStreamTab("tracks")}
-            className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider rounded transition-all cursor-pointer ${streamTab === "tracks"
-              ? (theme === "light" ? "bg-black text-white font-extrabold" : "bg-white text-black font-extrabold")
-              : (theme === "light" ? "text-neutral-500 hover:text-black" : "text-neutral-400 hover:text-white")
+            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border-r-2 border-black dark:border-white last:border-r-0 ${streamTab === "tracks"
+              ? "bg-black text-white dark:bg-white dark:text-black font-extrabold"
+              : "text-neutral-500 dark:text-mauve hover:bg-neutral-100 dark:hover:bg-neutral-900"
               }`}
           >
             {language === "pt" ? "músicas" : "tracks"}
           </button>
           <button
             onClick={() => setStreamTab("milestones")}
-            className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider rounded transition-all cursor-pointer ${streamTab === "milestones"
-              ? (theme === "light" ? "bg-black text-white font-extrabold" : "bg-white text-black font-extrabold")
-              : (theme === "light" ? "text-neutral-500 hover:text-black" : "text-neutral-400 hover:text-white")
+            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${streamTab === "milestones"
+              ? "bg-black text-white dark:bg-white dark:text-black font-extrabold"
+              : "text-neutral-500 dark:text-mauve hover:bg-neutral-100 dark:hover:bg-neutral-900"
               }`}
           >
             {language === "pt" ? "metas" : "milestones"}
@@ -841,7 +872,7 @@ export default function StreamsPage() {
         </div>
 
         {/* Announcement-style info bar */}
-        <div className={`p-4 border rounded flex items-start gap-3 mb-6 text-xs md:text-sm leading-relaxed ${theme === "light" ? "bg-neutral-50 border-neutral-200 text-neutral-600" : "bg-neutral-950 border-neutral-900 text-neutral-400"}`}>
+        <div className="p-4 border-2 border-black dark:border-white flex items-start gap-3 mb-6 text-xs md:text-sm leading-relaxed bg-neutral-50 dark:bg-neutral-950 text-neutral-600 dark:text-neutral-400">
           <Info className={`w-4 h-4 flex-shrink-0 mt-0.5 ${theme === "light" ? "text-black" : "text-white"}`} />
           <div>
             {language === "pt"
@@ -890,7 +921,7 @@ export default function StreamsPage() {
                   }
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-2 border rounded text-xs focus:outline-none ${theme === "light" ? "bg-white border-neutral-300 text-neutral-950 focus:border-black placeholder-neutral-400" : "bg-neutral-950 border-neutral-900 focus:border-white text-white placeholder-neutral-600"}`}
+                  className={`w-full pl-10 pr-4 py-2 border-2 border-black dark:border-white text-xs focus:outline-none rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)] ${theme === "light" ? "bg-white text-neutral-955 placeholder-neutral-400" : "bg-neutral-955 text-white placeholder-neutral-600"}`}
                 />
               </div>
 
@@ -898,10 +929,7 @@ export default function StreamsPage() {
               <div className="relative w-full sm:w-auto flex-shrink-0">
                 <button
                   onClick={() => setIsSortDropdownOpen(!isSortDropdownOpen)}
-                  className={`w-full sm:w-auto px-4 py-2 text-xs font-bold uppercase tracking-wider border rounded flex items-center justify-between sm:justify-start gap-2 transition-all cursor-pointer ${theme === "light"
-                    ? "bg-neutral-50 border-neutral-300 text-neutral-800 hover:border-black hover:text-black"
-                    : "bg-wine-deep/30 border-panel-border/30 text-rose hover:border-rose"
-                    }`}
+                  className="w-full sm:w-auto px-4 py-2 text-xs font-bold uppercase tracking-wider border-2 border-black dark:border-white flex items-center justify-between sm:justify-start gap-2 transition-all cursor-pointer rounded-none bg-panel-bg text-foreground shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]"
                 >
                   <div className="flex items-center gap-1.5">
                     <span>{language === "pt" ? "ORDENAR" : "SORT"}</span>
@@ -920,10 +948,7 @@ export default function StreamsPage() {
                     {/* Overlay backdrop to close dropdown */}
                     <div className="fixed inset-0 z-10" onClick={() => setIsSortDropdownOpen(false)} />
 
-                    <div className={`absolute right-0 mt-2 w-48 rounded border shadow-lg z-20 p-3 animate-fade-in ${theme === "light"
-                      ? "bg-white border-neutral-200 text-neutral-900"
-                      : "bg-wine-deep border-panel-border text-rose"
-                      }`}>
+                    <div className="absolute right-0 mt-2 w-48 border-2 border-black dark:border-white z-20 p-3 animate-fade-in rounded-none bg-panel-bg text-foreground shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
                       <span className={`text-[9px] font-bold uppercase tracking-widest block mb-2 ${theme === "light" ? "text-neutral-400" : "text-mauve"}`}>
                         {language === "pt" ? "ORDENAR POR" : "SORT BY"}
                       </span>
@@ -1241,10 +1266,7 @@ export default function StreamsPage() {
                   <div className="flex justify-center mt-6">
                     <button
                       onClick={() => setVisibleTracksCount(processedTracks.length)}
-                      className={`px-8 py-3 rounded-full border text-xs font-bold transition-all cursor-pointer ${theme === "light"
-                        ? "border-neutral-300 hover:border-black text-neutral-800 hover:bg-neutral-50"
-                        : "border-panel-border/30 hover:border-rose text-mauve hover:text-white bg-wine-deep/10 hover:bg-wine-deep/20"
-                        }`}
+                      className="px-8 py-3 text-xs font-bold transition-all neobrutal-btn cursor-pointer"
                     >
                       {language === "pt"
                         ? `Ver mais (${processedTracks.length - visibleTracksCount} mais)`
@@ -1259,7 +1281,57 @@ export default function StreamsPage() {
 
         {/* ALBUMS LIST */}
         {streamTab === "albums" && (
-          <div className="space-y-2">
+          <div className="space-y-4">
+            {/* Category Filter Selector */}
+            <div className="flex flex-wrap gap-2 pb-2">
+              <button
+                onClick={() => setAlbumTypeFilter("all")}
+                className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider border-2 border-black dark:border-white transition-all cursor-pointer ${albumTypeFilter === "all"
+                  ? (theme === "light" ? "bg-black text-white shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]" : "bg-white text-black shadow-[1px_1px_0px_0px_rgba(255,255,255,1)]")
+                  : (theme === "light" ? "bg-white text-black hover:bg-neutral-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" : "bg-transparent text-white hover:bg-neutral-900 shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]")
+                  }`}
+              >
+                {language === "pt" ? "Todos" : "All"}
+              </button>
+              <button
+                onClick={() => setAlbumTypeFilter("studio")}
+                className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider border-2 border-black dark:border-white transition-all cursor-pointer ${albumTypeFilter === "studio"
+                  ? (theme === "light" ? "bg-black text-white shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]" : "bg-white text-black shadow-[1px_1px_0px_0px_rgba(255,255,255,1)]")
+                  : (theme === "light" ? "bg-white text-black hover:bg-neutral-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" : "bg-transparent text-white hover:bg-neutral-900 shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]")
+                  }`}
+              >
+                {language === "pt" ? "Estúdio" : "Studio"}
+              </button>
+              <button
+                onClick={() => setAlbumTypeFilter("ep")}
+                className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider border-2 border-black dark:border-white transition-all cursor-pointer ${albumTypeFilter === "ep"
+                  ? (theme === "light" ? "bg-black text-white shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]" : "bg-white text-black shadow-[1px_1px_0px_0px_rgba(255,255,255,1)]")
+                  : (theme === "light" ? "bg-white text-black hover:bg-neutral-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" : "bg-transparent text-white hover:bg-neutral-900 shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]")
+                  }`}
+              >
+                EPs
+              </button>
+              <button
+                onClick={() => setAlbumTypeFilter("compilation")}
+                className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider border-2 border-black dark:border-white transition-all cursor-pointer ${albumTypeFilter === "compilation"
+                  ? (theme === "light" ? "bg-black text-white shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]" : "bg-white text-black shadow-[1px_1px_0px_0px_rgba(255,255,255,1)]")
+                  : (theme === "light" ? "bg-white text-black hover:bg-neutral-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" : "bg-transparent text-white hover:bg-neutral-900 shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]")
+                  }`}
+              >
+                {language === "pt" ? "Participações & Compilações" : "Collabs & Compilations"}
+              </button>
+              <button
+                onClick={() => setAlbumTypeFilter("other")}
+                className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider border-2 border-black dark:border-white transition-all cursor-pointer ${albumTypeFilter === "other"
+                  ? (theme === "light" ? "bg-black text-white shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]" : "bg-white text-black shadow-[1px_1px_0px_0px_rgba(255,255,255,1)]")
+                  : (theme === "light" ? "bg-white text-black hover:bg-neutral-100 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]" : "bg-transparent text-white hover:bg-neutral-900 shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]")
+                  }`}
+              >
+                {language === "pt" ? "Outras Versões" : "Other Versions"}
+              </button>
+            </div>
+
+            <div className="space-y-2">
             <div className={`flex justify-between text-[10px] font-bold uppercase tracking-wider px-2.5 sm:px-4 pb-3 border-b ${theme === "light" ? "text-neutral-500 border-neutral-200" : "text-neutral-500 border-neutral-900/60"}`}>
               <div className="flex items-center gap-2 sm:gap-4">
                 <div className="w-12 sm:w-20 flex items-center gap-1 sm:gap-2 flex-shrink-0">
@@ -1379,10 +1451,7 @@ export default function StreamsPage() {
                   <div className="flex justify-center mt-6">
                     <button
                       onClick={() => setVisibleAlbumsCount(processedAlbums.length)}
-                      className={`px-8 py-3 rounded-full border text-xs font-bold transition-all cursor-pointer ${theme === "light"
-                        ? "border-neutral-300 hover:border-black text-neutral-800 hover:bg-neutral-50"
-                        : "border-panel-border/30 hover:border-rose text-mauve hover:text-white bg-wine-deep/10 hover:bg-wine-deep/20"
-                        }`}
+                      className="px-8 py-3 text-xs font-bold transition-all neobrutal-btn cursor-pointer"
                     >
                       {language === "pt"
                         ? `Ver mais (${processedAlbums.length - visibleAlbumsCount} mais)`
@@ -1392,6 +1461,7 @@ export default function StreamsPage() {
                 )}
               </>
             )}
+            </div>
           </div>
         )}
 
@@ -1479,10 +1549,7 @@ export default function StreamsPage() {
                       <div className="flex justify-center mt-6">
                         <button
                           onClick={() => setVisibleMilestonesCount(upcomingMilestones.length)}
-                          className={`px-8 py-3 rounded-full border text-xs font-bold transition-all cursor-pointer ${theme === "light"
-                            ? "border-neutral-300 hover:border-black text-neutral-800 hover:bg-neutral-50"
-                            : "border-panel-border/30 hover:border-rose text-mauve hover:text-white bg-wine-deep/10 hover:bg-wine-deep/20"
-                            }`}
+                          className="px-8 py-3 text-xs font-bold transition-all neobrutal-btn cursor-pointer"
                         >
                           {language === "pt"
                             ? `Ver mais (${upcomingMilestones.length - visibleMilestonesCount} mais)`
@@ -1554,10 +1621,7 @@ export default function StreamsPage() {
                       <div className="flex justify-center mt-6">
                         <button
                           onClick={() => setVisibleMilestonesCount(surpassedItems.length)}
-                          className={`px-8 py-3 rounded-full border text-xs font-bold transition-all cursor-pointer ${theme === "light"
-                            ? "border-neutral-300 hover:border-black text-neutral-800 hover:bg-neutral-50"
-                            : "border-panel-border/30 hover:border-rose text-mauve hover:text-white bg-wine-deep/10 hover:bg-wine-deep/20"
-                            }`}
+                          className="px-8 py-3 text-xs font-bold transition-all neobrutal-btn cursor-pointer"
                         >
                           {language === "pt"
                             ? `Ver mais (${surpassedItems.length - visibleMilestonesCount} mais)`
@@ -1575,20 +1639,20 @@ export default function StreamsPage() {
 
       {/* MILESTONE PROGRESS MODAL POPUP */}
       {selectedTrack && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className={`w-full max-w-2xl rounded-lg p-4 md:p-8 relative animate-slide-up max-h-[90vh] overflow-y-auto ${theme === "light" ? "bg-white border border-neutral-200 text-neutral-950" : "bg-wine border border-panel-border text-rose"}`}>
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-2xl p-4 md:p-8 relative animate-slide-up max-h-[90vh] overflow-y-auto border-2 border-black dark:border-white bg-panel-bg text-foreground shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
             <button
               onClick={() => setSelectedTrack(null)}
-              className={`absolute top-4 right-4 md:top-6 md:right-6 p-2 rounded-full transition-all cursor-pointer ${theme === "light" ? "hover:bg-neutral-100 text-neutral-500 hover:text-black" : "hover:bg-wine-deep text-mauve hover:text-rose"}`}
+              className="absolute top-4 right-4 md:top-6 md:right-6 p-2 transition-all cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-900 text-neutral-500 hover:text-black dark:hover:text-white"
             >
               <X className="w-5 h-5 md:w-6 md:h-6" />
             </button>
 
-            <div className={`flex flex-col sm:flex-row gap-4 sm:gap-6 mb-6 items-center sm:items-start border-b pb-6 text-center sm:text-left ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}>
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 mb-6 items-center sm:items-start border-b border-black dark:border-white pb-6 text-center sm:text-left">
               <img
                 src={selectedTrack.coverUrl}
                 alt={selectedTrack.title}
-                className={`w-20 h-20 rounded-md object-cover border shadow-md ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}
+                className="w-20 h-20 object-cover border-2 border-black dark:border-white shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]"
               />
               <div className="flex-1 min-w-0">
                 <h3 className={`text-xl md:text-3xl font-serif tracking-wide leading-tight ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>{selectedTrack.title}</h3>
@@ -1605,9 +1669,9 @@ export default function StreamsPage() {
                   </span>
                 </div>
 
-                <div className={`w-full h-2.5 border rounded-full overflow-hidden ${theme === "light" ? "bg-neutral-100 border-neutral-200" : "bg-wine-deep border-panel-border"}`}>
+                <div className="w-full h-4 border-2 border-black dark:border-white bg-neutral-100 dark:bg-neutral-900 overflow-hidden rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${theme === "light" ? "bg-black" : "bg-rose"}`}
+                    className={`h-full transition-all duration-500 ${theme === "light" ? "bg-black" : "bg-rose"}`}
                     style={{
                       width: `${selectedTrackProgressPercent}%`,
                     }}
@@ -1615,30 +1679,30 @@ export default function StreamsPage() {
                 </div>
               </div>
 
-              <div className={`p-4 md:p-6 rounded border space-y-3 md:space-y-3.5 text-xs md:text-sm font-mono ${theme === "light" ? "bg-neutral-50 border-neutral-200" : "bg-wine-deep border-panel-border"}`}>
+              <div className="p-4 md:p-6 border-2 border-black dark:border-white bg-neutral-50 dark:bg-neutral-950 space-y-3 md:space-y-3.5 text-xs md:text-sm font-mono shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
                 <div className="flex justify-between">
-                  <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "streams totais:" : "total streams:"}</span>
-                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>{formatNumber(selectedTrack.totalStreams)}</span>
+                  <span className="text-neutral-500 dark:text-mauve">{language === "pt" ? "streams totais:" : "total streams:"}</span>
+                  <span className="font-bold text-neutral-950 dark:text-rose">{formatNumber(selectedTrack.totalStreams)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "streams necessários:" : "streams needed:"}</span>
-                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>
+                  <span className="text-neutral-500 dark:text-mauve">{language === "pt" ? "streams necessários:" : "streams needed:"}</span>
+                  <span className="font-bold text-neutral-950 dark:text-rose">
                     {formatNumber(selectedTrackRemainingStreams)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "ganho diário:" : "daily gain velocity:"}</span>
-                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>+{formatNumber(selectedTrackPace)}</span>
+                  <span className="text-neutral-500 dark:text-mauve">{language === "pt" ? "ganho diário:" : "daily gain velocity:"}</span>
+                  <span className="font-bold text-neutral-950 dark:text-rose">+{formatNumber(selectedTrackPace)}</span>
                 </div>
-                <div className={`flex justify-between border-t pt-3 mt-3 ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}>
-                  <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "dias estimados para a meta:" : "est. days to goal:"}</span>
-                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>
+                <div className="flex justify-between border-t border-black dark:border-white pt-3 mt-3">
+                  <span className="text-neutral-500 dark:text-mauve">{language === "pt" ? "dias estimados para a meta:" : "est. days to goal:"}</span>
+                  <span className="font-bold text-neutral-950 dark:text-rose">
                     {selectedTrackDaysToGoal === null ? "—" : `${selectedTrackDaysToGoal} ${language === "pt" ? "dias" : "days"}`}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "data prevista:" : "target date:"}</span>
-                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>
+                  <span className="text-neutral-500 dark:text-mauve">{language === "pt" ? "data prevista:" : "target date:"}</span>
+                  <span className="font-bold text-neutral-950 dark:text-rose">
                     {selectedTrackDaysToGoal === null ? "—" : getMilestoneDate(selectedTrackDaysToGoal)}
                   </span>
                 </div>
@@ -1646,8 +1710,8 @@ export default function StreamsPage() {
 
               {/* Interactive Stream Chart */}
               {selectedTrack.streams && (
-                <div className={`p-3.5 md:p-5 rounded border ${theme === "light" ? "bg-neutral-50 border-neutral-200" : "bg-wine-deep/40 border-panel-border"}`}>
-                  <h4 className={`text-[10px] md:text-xs font-bold uppercase tracking-wider mb-3 font-sans ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
+                <div className="p-3.5 md:p-5 border-2 border-black dark:border-white bg-neutral-50 dark:bg-neutral-950/20 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
+                  <h4 className="text-[10px] md:text-xs font-bold uppercase tracking-wider mb-3 font-sans text-neutral-500 dark:text-mauve">
                     {language === "pt" ? "gráfico de desempenho histórico" : "historical performance chart"}
                   </h4>
                   <StreamChart streams={selectedTrack.streams} theme={theme} language={language} />
@@ -1658,7 +1722,7 @@ export default function StreamsPage() {
             <div className="mt-6 md:mt-8 flex justify-end">
               <button
                 onClick={() => setSelectedTrack(null)}
-                className={`w-full sm:w-auto px-6 py-3 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border ${theme === "light" ? "bg-black hover:bg-neutral-800 text-white border-black" : "bg-rose hover:opacity-90 text-floral-bg border-rose"}`}
+                className="w-full sm:w-auto px-6 py-3 text-xs font-bold uppercase tracking-wider neobrutal-btn cursor-pointer"
               >
                 {t("streams.close")}
               </button>
@@ -1666,23 +1730,22 @@ export default function StreamsPage() {
           </div>
         </div>
       )}
-
       {/* ALBUM MILESTONE PROGRESS MODAL POPUP */}
       {selectedAlbum && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className={`w-full max-w-2xl rounded-lg p-4 md:p-8 relative animate-slide-up max-h-[90vh] overflow-y-auto ${theme === "light" ? "bg-white border border-neutral-200 text-neutral-950" : "bg-wine border border-panel-border text-rose"}`}>
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-2xl p-4 md:p-8 relative animate-slide-up max-h-[90vh] overflow-y-auto border-2 border-black dark:border-white bg-panel-bg text-foreground shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,1)]">
             <button
               onClick={() => setSelectedAlbum(null)}
-              className={`absolute top-4 right-4 md:top-6 md:right-6 p-2 rounded-full transition-all cursor-pointer ${theme === "light" ? "hover:bg-neutral-100 text-neutral-500 hover:text-black" : "hover:bg-wine-deep text-mauve hover:text-rose"}`}
+              className="absolute top-4 right-4 md:top-6 md:right-6 p-2 transition-all cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-900 text-neutral-500 hover:text-black dark:hover:text-white"
             >
               <X className="w-5 h-5 md:w-6 md:h-6" />
             </button>
 
-            <div className={`flex flex-col sm:flex-row gap-4 sm:gap-6 mb-6 items-center sm:items-start border-b pb-6 text-center sm:text-left ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}>
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 mb-6 items-center sm:items-start border-b border-black dark:border-white pb-6 text-center sm:text-left">
               <img
                 src={selectedAlbum.coverUrl}
                 alt={selectedAlbum.title}
-                className={`w-20 h-20 rounded-md object-cover border shadow-md ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}
+                className="w-20 h-20 object-cover border-2 border-black dark:border-white shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]"
               />
               <div className="flex-1 min-w-0">
                 <h3 className={`text-xl md:text-3xl font-serif tracking-wide leading-tight ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>{selectedAlbum.title}</h3>
@@ -1699,9 +1762,9 @@ export default function StreamsPage() {
                   </span>
                 </div>
 
-                <div className={`w-full h-2.5 border rounded-full overflow-hidden ${theme === "light" ? "bg-neutral-100 border-neutral-200" : "bg-wine-deep border-panel-border"}`}>
+                <div className="w-full h-4 border-2 border-black dark:border-white bg-neutral-100 dark:bg-neutral-900 overflow-hidden rounded-none shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,1)]">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${theme === "light" ? "bg-black" : "bg-rose"}`}
+                    className={`h-full transition-all duration-500 ${theme === "light" ? "bg-black" : "bg-rose"}`}
                     style={{
                       width: `${selectedAlbumProgressPercent}%`,
                     }}
@@ -1709,30 +1772,30 @@ export default function StreamsPage() {
                 </div>
               </div>
 
-              <div className={`p-4 md:p-6 rounded border space-y-3 md:space-y-3.5 text-xs md:text-sm font-mono ${theme === "light" ? "bg-neutral-50 border-neutral-200" : "bg-wine-deep border-panel-border"}`}>
+                 <div className="p-4 md:p-6 border-2 border-black dark:border-white bg-neutral-50 dark:bg-neutral-950 space-y-3 md:space-y-3.5 text-xs md:text-sm font-mono shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
                 <div className="flex justify-between">
-                  <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "streams totais:" : "total streams:"}</span>
-                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>{formatNumber(selectedAlbum.totalStreams)}</span>
+                  <span className="text-neutral-500 dark:text-mauve">{language === "pt" ? "streams totais:" : "total streams:"}</span>
+                  <span className="font-bold text-neutral-955 dark:text-rose">{formatNumber(selectedAlbum.totalStreams)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "streams necessários:" : "streams needed:"}</span>
-                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>
+                  <span className="text-neutral-500 dark:text-mauve">{language === "pt" ? "streams necessários:" : "streams needed:"}</span>
+                  <span className="font-bold text-neutral-950 dark:text-rose">
                     {formatNumber(selectedAlbumRemainingStreams)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "ganho diário:" : "daily gain velocity:"}</span>
-                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>+{formatNumber(selectedAlbumPace)}</span>
+                  <span className="text-neutral-500 dark:text-mauve">{language === "pt" ? "ganho diário:" : "daily gain velocity:"}</span>
+                  <span className="font-bold text-neutral-950 dark:text-rose">+{formatNumber(selectedAlbumPace)}</span>
                 </div>
-                <div className={`flex justify-between border-t pt-3 mt-3 ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}>
-                  <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "dias estimados para a meta:" : "est. days to goal:"}</span>
-                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>
+                <div className="flex justify-between border-t-2 border-black dark:border-white pt-3 mt-3">
+                  <span className="text-neutral-500 dark:text-mauve">{language === "pt" ? "dias estimados para a meta:" : "est. days to goal:"}</span>
+                  <span className="font-bold text-neutral-950 dark:text-rose">
                     {selectedAlbumDaysToGoal === null ? "—" : `${selectedAlbumDaysToGoal} ${language === "pt" ? "dias" : "days"}`}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className={theme === "light" ? "text-neutral-500" : "text-mauve"}>{language === "pt" ? "data prevista:" : "target date:"}</span>
-                  <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-rose"}`}>
+                  <span className="text-neutral-500 dark:text-mauve">{language === "pt" ? "data prevista:" : "target date:"}</span>
+                  <span className="font-bold text-neutral-950 dark:text-rose">
                     {selectedAlbumDaysToGoal === null ? "—" : getMilestoneDate(selectedAlbumDaysToGoal)}
                   </span>
                 </div>
@@ -1740,8 +1803,8 @@ export default function StreamsPage() {
 
               {/* Album Tracklist */}
               {albumTracks.length > 0 && (
-                <div className={`p-3.5 md:p-5 rounded border ${theme === "light" ? "bg-neutral-50 border-neutral-200" : "bg-wine-deep/40 border-panel-border"}`}>
-                  <h4 className={`text-[10px] md:text-xs font-bold uppercase tracking-wider mb-3 font-sans ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
+                <div className="p-3.5 md:p-5 border-2 border-black dark:border-white bg-neutral-50 dark:bg-neutral-950/20 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
+                  <h4 className="text-[10px] md:text-xs font-bold uppercase tracking-wider mb-3 font-sans text-neutral-500 dark:text-mauve">
                     {language === "pt" ? "faixas do álbum" : "album tracks"} ({albumTracks.length})
                   </h4>
                   <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-neutral-800">
@@ -1752,16 +1815,13 @@ export default function StreamsPage() {
                           setSelectedAlbum(null);
                           setSelectedTrack(track);
                         }}
-                        className={`grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-2.5 items-center p-2 rounded transition-all cursor-pointer border ${theme === "light"
-                          ? "hover:bg-neutral-100 border-transparent hover:border-neutral-200 text-neutral-900"
-                          : "hover:bg-wine-deep/60 border-transparent hover:border-panel-border text-rose"
-                          }`}
+                        className={`grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-2.5 items-center p-2 border-b-2 border-neutral-100 dark:border-neutral-900 last:border-b-0 transition-all cursor-pointer text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900/60`}
                       >
-                        <span className={`text-[10px] font-mono w-4 text-right ${theme === "light" ? "text-neutral-400" : "text-mauve/60"}`}>
+                        <span className="text-[10px] font-mono w-4 text-right text-neutral-400 dark:text-mauve/60">
                           {idx + 1}
                         </span>
                         <div className="flex items-center gap-2 min-w-0">
-                          <img src={track.coverUrl} className="w-7 h-7 rounded object-cover flex-shrink-0" alt="" />
+                          <img src={track.coverUrl} className="w-7 h-7 object-cover border-2 border-black dark:border-white flex-shrink-0" alt="" />
                           <p className="text-xs font-bold truncate">
                             {track.title}
                           </p>
@@ -1769,14 +1829,14 @@ export default function StreamsPage() {
                         <span className="font-mono text-[10px] w-20 sm:w-24 text-right">
                           {formatNumber(track.totalStreams)}
                         </span>
-                        <span className={`font-mono text-[10px] w-16 sm:w-20 text-right font-semibold ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
+                        <span className="font-mono text-[10px] w-16 sm:w-20 text-right font-semibold text-neutral-500 dark:text-mauve">
                           +{formatNumber(track.dailyGain)}
                         </span>
                         <span className="font-mono text-[9px] w-14 sm:w-16 text-right font-bold flex items-center justify-end">
                           {(() => {
                             const gainDisplay = getTrackGainDisplay(track, language);
                             if (!gainDisplay || gainDisplay.diff === 0) {
-                              return <span className={theme === "light" ? "text-neutral-400" : "text-mauve/40"}>—</span>;
+                              return <span className="text-neutral-450 dark:text-mauve/40">—</span>;
                             }
                             return (
                               <span className={`flex items-center gap-0.5 ${gainDisplay.isUp ? "text-green-500" : "text-red-400"}`}>
@@ -1794,8 +1854,8 @@ export default function StreamsPage() {
 
               {/* Interactive Stream Chart */}
               {selectedAlbum.streams && (
-                <div className={`p-3.5 md:p-5 rounded border ${theme === "light" ? "bg-neutral-50 border-neutral-200" : "bg-wine-deep/40 border-panel-border"}`}>
-                  <h4 className={`text-[10px] md:text-xs font-bold uppercase tracking-wider mb-3 font-sans ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
+                <div className="p-3.5 md:p-5 border-2 border-black dark:border-white bg-neutral-50 dark:bg-neutral-950/20 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
+                  <h4 className="text-[10px] md:text-xs font-bold uppercase tracking-wider mb-3 font-sans text-neutral-500 dark:text-mauve">
                     {language === "pt" ? "gráfico de desempenho histórico" : "historical performance chart"}
                   </h4>
                   <StreamChart streams={selectedAlbum.streams} theme={theme} language={language} />
@@ -1806,7 +1866,7 @@ export default function StreamsPage() {
             <div className="mt-6 md:mt-8 flex justify-end">
               <button
                 onClick={() => setSelectedAlbum(null)}
-                className={`w-full sm:w-auto px-6 py-3 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border ${theme === "light" ? "bg-black hover:bg-neutral-800 text-white border-black" : "bg-rose hover:opacity-90 text-floral-bg border-rose"}`}
+                className="w-full sm:w-auto px-6 py-3 text-xs font-bold uppercase tracking-wider neobrutal-btn cursor-pointer"
               >
                 {t("streams.close")}
               </button>

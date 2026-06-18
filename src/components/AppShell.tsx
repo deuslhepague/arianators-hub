@@ -61,7 +61,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen bg-floral-bg text-floral-fg transition-colors duration-200 pb-12 md:pb-28">
+    <div className="flex-1 flex flex-col min-h-screen bg-floral-bg text-floral-fg transition-colors duration-200 pb-12 md:pb-28 neobrutal-grid-bg">
       {/* TOP UTILITY BAR (Login / Theme) */}
       <div className="w-full bg-wine-deep px-4 md:px-8 py-2.5 flex justify-between items-center text-xs text-mauve border-b border-panel-border">
         <div>

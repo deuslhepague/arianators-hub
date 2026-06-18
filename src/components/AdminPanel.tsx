@@ -47,6 +47,7 @@ interface AlbumStat {
   coverUrl: string;
   spotifyAlbumId?: string;
   isParticipation?: boolean;
+  type?: string;
   streams?: { [date: string]: { total: number; daily: number | null } };
 }
 
@@ -133,6 +134,7 @@ export default function AdminPanel() {
   const [editAlbumCoverUrl, setEditAlbumCoverUrl] = useState("");
   const [editAlbumSpotifyAlbumId, setEditAlbumSpotifyAlbumId] = useState("");
   const [editAlbumIsParticipation, setEditAlbumIsParticipation] = useState(false);
+  const [editAlbumType, setEditAlbumType] = useState("studio");
 
   // Play Simulation states
   const [simSelectedTrackId, setSimSelectedTrackId] = useState("");
@@ -382,6 +384,7 @@ export default function AdminPanel() {
     setEditAlbumDailyGain(album.dailyGain);
     setEditAlbumCoverUrl(album.coverUrl);
     setEditAlbumSpotifyAlbumId(album.spotifyAlbumId || "");
+    setEditAlbumType(album.type || (album.isParticipation ? "compilation" : "studio"));
   };
 
   const cancelEditAlbum = () => {
@@ -401,6 +404,7 @@ export default function AdminPanel() {
           dailyGain: Number(editAlbumDailyGain) || 0,
           coverUrl: editAlbumCoverUrl.trim() || "/petal.jpg",
           spotifyAlbumId: editAlbumSpotifyAlbumId.trim() || undefined,
+          type: editAlbumType,
           streams: nextTotalStreams !== previousTotalStreams
             ? addStreamHistoryEntry(a.streams, getTodayDateStr(), nextTotalStreams, previousTotalStreams)
             : a.streams,
@@ -592,7 +596,20 @@ export default function AdminPanel() {
             streams: mergedStreams
           };
         } else {
-          updatedAlbums.push(newAlbum);
+          const isOther = (
+            newAlbum.title.toLowerCase().includes("a cappella") ||
+            newAlbum.title.toLowerCase().includes("instrumental") ||
+            newAlbum.title.toLowerCase().includes("remix") ||
+            newAlbum.title.toLowerCase().includes("live") ||
+            newAlbum.title.toLowerCase().includes("sped up") ||
+            newAlbum.title.toLowerCase().includes("slowed") ||
+            newAlbum.title.toLowerCase().includes("acapella")
+          );
+          const autoType = isOther ? "other" : (newAlbum.isParticipation ? "compilation" : "studio");
+          updatedAlbums.push({
+            ...newAlbum,
+            type: autoType
+          });
         }
 
         // 2. Merge tracks into current tracks catalog
@@ -1360,6 +1377,22 @@ export default function AdminPanel() {
                         </div>
                       </div>
 
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-neutral-455 uppercase mb-1 font-bold">album type</label>
+                          <select
+                            value={editAlbumType}
+                            onChange={(e) => setEditAlbumType(e.target.value)}
+                            className="w-full bg-neutral-900 border border-neutral-850 rounded px-2 py-1.5 text-white text-xs focus:outline-none"
+                          >
+                            <option value="studio">{language === "pt" ? "Álbum de Estúdio" : "Studio Album"}</option>
+                            <option value="ep">EP</option>
+                            <option value="compilation">{language === "pt" ? "Participação / Compilação" : "Collab / Compilation"}</option>
+                            <option value="other">{language === "pt" ? "Outra Versão (Acapella, Instrumental, etc.)" : "Other Version (Acapella, Instrumental, etc.)"}</option>
+                          </select>
+                        </div>
+                      </div>
+
                       <div className="flex gap-2 justify-end pt-2">
                         <button
                           onClick={() => handleSaveAlbumEdit(album.id)}
@@ -1387,6 +1420,7 @@ export default function AdminPanel() {
                             <span className="block">Spotify Album ID: <strong className="text-neutral-400 font-mono">{album.spotifyAlbumId || "none"}</strong></span>
                             <span className="block">Streams: <strong className="text-neutral-400">{album.totalStreams.toLocaleString()}</strong></span>
                             <span className="block">Daily Gain: <strong className="text-rose font-semibold">+{album.dailyGain.toLocaleString()}</strong></span>
+                            <span className="block">Type: <strong className="text-neutral-400 capitalize">{album.type || (album.isParticipation ? "compilation" : "studio")}</strong></span>
                           </div>
                         </div>
                       </div>

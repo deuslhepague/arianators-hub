@@ -48,10 +48,10 @@
 
   --font-sans: var(--font-spotify-mix);
   --font-serif: var(--font-spotify-mix-title);
-  
+
   --color-floral-bg: var(--background);
   --color-floral-fg: var(--foreground);
-  
+
   --color-rose: var(--color-rose);
   --color-rose-hover: var(--color-rose-hover);
   --color-wine: var(--color-wine);
@@ -64,64 +64,81 @@
   --color-border-subtle: var(--border-subtle);
   --color-panel-bg: var(--panel-bg);
   --color-panel-border: var(--panel-border);
-  
+
   --animate-fade-in: fade-in 0.25s ease-out;
   --animate-slide-up: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 :root {
-  --background: #0c0c0c; /* Shop.arianagrande.com signature dark charcoal */
+  --background: #0c0c0c;
+  /* Shop.arianagrande.com signature dark charcoal */
   --foreground: #ffffff;
-  
-  --color-rose: #ffffff; /* Shop accent is clean white */
+
+  --color-rose: #ffffff;
+  /* Shop accent is clean white */
   --color-rose-hover: #e5e5e5;
-  --color-wine: #121212; /* Solid black-gray cards */
+  --color-wine: #121212;
+  /* Solid black-gray cards */
   --color-wine-dark: #181818;
   --color-wine-deep: #070707;
-  --color-mauve: #a3a3a3; /* Light gray for high readability secondary text */
+  --color-mauve: #a3a3a3;
+  /* Light gray for high readability secondary text */
   --color-gold: #ffffff;
   --color-gold-hover: #e5e5e5;
   --color-sage: #ffffff;
-  
+
   --border-subtle: rgba(255, 255, 255, 0.15);
   --panel-bg: #121212;
   --panel-border: rgba(255, 255, 255, 0.12);
-  
+
   --scrollbar-track: #0c0c0c;
   --scrollbar-thumb: #262626;
 }
 
 .light {
   /* Warm cream shop theme */
-  --background: #fbf9f6; 
+  --background: #fbf9f6;
   --foreground: #0c0c0c;
-  
+
   --color-rose: #0c0c0c;
   --color-rose-hover: #262626;
   --color-wine: #ffffff;
   --color-wine-dark: #f5f2eb;
   --color-wine-deep: #efebe4;
-  --color-mauve: #5b5b5b; /* High contrast gray in light mode */
+  --color-mauve: #5b5b5b;
+  /* High contrast gray in light mode */
   --color-gold: #0c0c0c;
   --color-gold-hover: #262626;
   --color-sage: #0c0c0c;
-  
+
   --border-subtle: rgba(0, 0, 0, 0.15);
   --panel-bg: #ffffff;
   --panel-border: rgba(0, 0, 0, 0.12);
-  
+
   --scrollbar-track: #fbf9f6;
   --scrollbar-thumb: #d4d4d8;
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slide-up {
-  from { transform: translateY(8px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 body {
@@ -129,7 +146,8 @@ body {
   color: var(--foreground);
   font-family: var(--font-spotify-mix);
   overflow-x: hidden;
-  font-size: 16px; /* Increased base font size from 14px to 16px */
+  font-size: 16px;
+  /* Increased base font size from 14px to 16px */
   line-height: 1.6;
 }
 
@@ -143,13 +161,16 @@ body {
 ::-webkit-scrollbar {
   width: 8px;
 }
+
 ::-webkit-scrollbar-track {
   background: var(--scrollbar-track);
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-rose);
 }
@@ -159,6 +180,7 @@ body {
   background-color: #0c0c0c;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
+
 .light .shop-header-banner {
   background-color: #fbf9f6;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
@@ -168,7 +190,113 @@ body {
 .glass-panel {
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
-  border-radius: 4px; /* Square-ish elegant corners */
+  border-radius: 4px;
+  /* Square-ish elegant corners */
+}
+
+/* Neobrutalism Classes (Adoção Híbrida) */
+.neobrutal-card {
+  background: var(--panel-bg);
+  border: 2px solid var(--foreground);
+  box-shadow: 4px 4px 0px 0px var(--foreground);
+  border-radius: 0px;
+  /* Sharp corners for authentic brutalist feel */
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Soft color offsets for a premium dark/light experience */
+.neobrutal-card-spotify {
+  background: var(--panel-bg);
+  border: 2px solid var(--foreground);
+  box-shadow: 4px 4px 0px 0px #1ed760;
+  border-radius: 0px;
+}
+
+.neobrutal-card-rose {
+  background: var(--panel-bg);
+  border: 2px solid var(--foreground);
+  box-shadow: 4px 4px 0px 0px #e299a2;
+  /* Soft elegant dusty rose */
+  border-radius: 0px;
+}
+
+.neobrutal-card-accent {
+  background: var(--panel-bg);
+  border: 2px solid var(--foreground);
+  box-shadow: 4px 4px 0px 0px #3b82f6;
+  /* Blue accent */
+  border-radius: 0px;
+}
+
+/* Interactive elements */
+.neobrutal-btn {
+  background: var(--panel-bg);
+  color: var(--foreground);
+  border: 2px solid var(--foreground);
+  box-shadow: 3px 3px 0px 0px var(--foreground);
+  border-radius: 0px;
+  font-weight: 700;
+  transition: all 0.1s ease-in-out;
+  cursor: pointer;
+}
+
+.neobrutal-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px 0px var(--foreground);
+}
+
+.neobrutal-btn:active {
+  transform: translate(3px, 3px);
+  box-shadow: 0px 0px 0px 0px var(--foreground);
+}
+
+/* Specific tabs styling */
+.neobrutal-tab {
+  border: 2px solid var(--foreground);
+  border-radius: 0px;
+  font-weight: 800;
+  transition: all 0.1s ease;
+}
+
+/* Sticker badge styling */
+.neobrutal-sticker {
+  display: inline-block;
+  border: 2px solid var(--foreground);
+  background: var(--panel-bg);
+  padding: 2px 8px;
+  font-weight: 800;
+  font-size: 11px;
+  text-transform: uppercase;
+  box-shadow: 2px 2px 0px 0px var(--foreground);
+  transform: rotate(-1.5deg);
+}
+
+.neobrutal-sticker-green {
+  background: #1ed760;
+  color: #000000;
+  border: 2px solid #0c0c0c;
+  box-shadow: 2px 2px 0px 0px #0c0c0c;
+}
+
+.neobrutal-sticker-rose {
+  background: #f26179;
+  color: #0c0c0c;
+  border: 2px solid var(--foreground);
+  box-shadow: 2px 2px 0px 0px var(--foreground);
+}
+
+/* Grid background texture */
+.neobrutal-grid-bg {
+  background-size: 24px 24px;
+  background-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+}
+
+.dark .neobrutal-grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
 }
 
 /* Floating bottom nav bar styling matching Shop style */
@@ -185,6 +313,7 @@ body {
   z-index: 100;
   border-radius: 9999px;
 }
+
 .light .floating-bottom-nav {
   background: rgba(251, 249, 246, 0.95);
   border: 1px solid rgba(0, 0, 0, 0.15);
@@ -192,7 +321,9 @@ body {
 }
 
 /* High contrast inputs */
-input, select, textarea {
+input,
+select,
+textarea {
   font-family: var(--font-spotify-mix);
 }
 
@@ -200,6 +331,7 @@ input, select, textarea {
 .shop-underline-hover {
   position: relative;
 }
+
 .shop-underline-hover::after {
   content: '';
   position: absolute;
@@ -212,6 +344,7 @@ input, select, textarea {
   transform-origin: bottom right;
   transition: transform 0.25s ease-out;
 }
+
 .shop-underline-hover:hover::after {
   transform: scaleX(1);
   transform-origin: bottom left;
@@ -219,9 +352,12 @@ input, select, textarea {
 
 /* Modern Spotify indicator animation similar to b-cd.app */
 @keyframes breathing-glow {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow: 0 0 4px rgba(30, 215, 96, 0.2), inset 0 0 2px rgba(30, 215, 96, 0.1);
   }
+
   50% {
     box-shadow: 0 0 16px rgba(30, 215, 96, 0.5), inset 0 0 4px rgba(30, 215, 96, 0.2);
   }
@@ -232,6 +368,7 @@ input, select, textarea {
   animation: breathing-glow 2s infinite ease-in-out;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .spotify-glow-button:hover {
   background-color: rgb(30, 215, 96);
   color: #000000 !important;
@@ -240,9 +377,19 @@ input, select, textarea {
 
 /* Active session glowing dot */
 @keyframes pulse-dot {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.3); opacity: 0.6; }
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.3);
+    opacity: 0.6;
+  }
 }
+
 .pulsing-green-dot {
   width: 8px;
   height: 8px;
@@ -328,5 +475,3 @@ input, select, textarea {
   border-color: rgba(0, 0, 0, 0.08) !important;
   color: #0c0c0c !important;
 }
-
-
