@@ -64,6 +64,7 @@ interface PendingValidation {
 export default function AdminPanel() {
   const { language } = useLanguage();
   const { theme } = useTheme();
+  const lt = theme === "light";
 
   // Authentication states
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -893,8 +894,10 @@ export default function AdminPanel() {
   // Render Passcode Form if not authenticated
   if (!isAuthenticated) {
     return (
-      <div id="admin-auth" className="max-w-md mx-auto glass-panel p-8 text-center animate-fade-in text-floral-fg">
-        <ShieldAlert className="w-14 h-14 text-rose mx-auto mb-5 animate-pulse" />
+      <div id="admin-auth" className="max-w-md mx-auto neobrutal-card p-8 text-center animate-fade-in text-floral-fg">
+        <div className="p-3 bg-red-950/20 border-2 border-foreground text-red-500 rounded-none mb-5 mx-auto w-fit shadow-[2px_2px_0px_0px_var(--foreground)]">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
         <h3 className="font-serif text-2xl text-rose mb-3 uppercase tracking-wider">
           {language === "pt" ? "acesso administrativo" : "admin access"}
         </h3>
@@ -910,7 +913,7 @@ export default function AdminPanel() {
             value={passcodeInput}
             onChange={(e) => setPasscodeInput(e.target.value)}
             placeholder={language === "pt" ? "digite a senha de acesso" : "enter passcode"}
-            className="w-full bg-neutral-950 border border-neutral-900 rounded px-4 py-3 text-center text-white focus:border-white focus:outline-none placeholder-neutral-700 text-sm"
+            className="w-full bg-neutral-950 border-2 border-foreground rounded-none px-4 py-3 text-center text-white focus:border-white focus:outline-none placeholder-neutral-700 text-sm"
           />
           {authError && (
             <span className="text-xs text-red-500 font-bold block">
@@ -919,7 +922,7 @@ export default function AdminPanel() {
           )}
           <button
             type="submit"
-            className="w-full py-3 bg-white hover:bg-neutral-200 text-black font-extrabold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-neutral-850"
+            className="w-full py-3 neobrutal-btn text-xs uppercase tracking-wider transition-colors cursor-pointer"
           >
             {language === "pt" ? "desbloquear" : "authenticate"}
           </button>
@@ -929,11 +932,11 @@ export default function AdminPanel() {
   }
 
   return (
-    <section className="glass-panel p-6 lg:p-10 text-floral-fg animate-fade-in" id="admin">
+    <section className="neobrutal-card p-6 lg:p-10 text-floral-fg animate-fade-in" id="admin">
       {/* Header Block */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-panel-border pb-6 mb-8 gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between border-b-2 border-foreground pb-6 mb-8 gap-4">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-neutral-900 border border-neutral-800 text-white rounded">
+          <div className="p-3 bg-neutral-900 border-2 border-foreground text-white rounded-none shadow-[2px_2px_0px_0px_var(--foreground)]">
             <Settings className="w-8 h-8" />
           </div>
           <div>
@@ -949,56 +952,71 @@ export default function AdminPanel() {
         {/* Global Save Button */}
         <button
           onClick={() => saveAdminConfig(tracks, albums)}
-          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-rose hover:bg-rose-dark text-floral-bg font-extrabold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-rose"
+          className="flex items-center justify-center gap-2 px-5 py-2.5 neobrutal-btn text-xs uppercase tracking-wider transition-colors cursor-pointer"
         >
           <Save className="w-4 h-4" /> {language === "pt" ? "salvar alterações" : "save changes"}
         </button>
       </div>
 
       {statusMessage && (
-        <div className="mb-6 p-4 bg-wine-deep border border-panel-border text-white text-sm rounded flex items-center gap-2 animate-slide-up font-mono">
+        <div className="mb-6 p-4 bg-wine-deep border-2 border-foreground text-white text-sm rounded-none flex items-center gap-2 animate-slide-up font-mono shadow-[2px_2px_0px_0px_var(--foreground)]">
           <AlertCircle className="w-4 h-4 text-rose" /> {statusMessage}
         </div>
       )}
 
       {/* ADMIN SUB-TABS */}
-      <div className="flex flex-wrap border-b border-panel-border mb-8 gap-6 text-sm font-bold uppercase tracking-wider text-neutral-450 font-mono">
+      <div className={`flex flex-wrap gap-2 p-1.5 border-2 border-foreground mb-8 font-mono ${lt ? "bg-neutral-100" : "bg-neutral-950"}`}>
         <button
           onClick={() => setAdminTab("catalog")}
-          className={`pb-3 cursor-pointer ${adminTab === "catalog" ? "text-white border-b border-white" : "hover:text-white"}`}
+          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-2 transition-all duration-200 cursor-pointer ${adminTab === "catalog"
+            ? "bg-foreground text-background border-foreground shadow-[2px_2px_0px_0px_var(--foreground)]"
+            : `border-transparent ${lt ? "text-neutral-600 hover:text-black hover:border-foreground" : "text-neutral-450 hover:text-white hover:border-foreground"}`
+            }`}
         >
           {language === "pt" ? "foco & alternativas" : "track catalog"}
         </button>
         <button
           onClick={() => setAdminTab("streams")}
-          className={`pb-3 cursor-pointer ${adminTab === "streams" ? "text-white border-b border-white" : "hover:text-white"}`}
+          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-2 transition-all duration-200 cursor-pointer ${adminTab === "streams"
+            ? "bg-foreground text-background border-foreground shadow-[2px_2px_0px_0px_var(--foreground)]"
+            : `border-transparent ${lt ? "text-neutral-600 hover:text-black hover:border-foreground" : "text-neutral-450 hover:text-white hover:border-foreground"}`
+            }`}
         >
           {language === "pt" ? "tabela de reproduções" : "album & track counts"}
         </button>
         <button
           onClick={() => setAdminTab("validations")}
-          className={`pb-3 cursor-pointer relative ${adminTab === "validations" ? "text-white border-b border-white" : "hover:text-white"}`}
+          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-2 transition-all duration-200 cursor-pointer relative ${adminTab === "validations"
+            ? "bg-foreground text-background border-foreground shadow-[2px_2px_0px_0px_var(--foreground)]"
+            : `border-transparent ${lt ? "text-neutral-600 hover:text-black hover:border-foreground" : "text-neutral-450 hover:text-white hover:border-foreground"}`
+            }`}
         >
           {language === "pt" ? "validações pendentes" : "pending validations"}
           {pendingList.length > 0 && (
-            <span className="absolute -top-1.5 -right-3.5 bg-rose text-floral-bg text-[9px] font-extrabold rounded-full w-4 h-4 flex items-center justify-center">
+            <span className="absolute -top-1.5 -right-1.5 bg-rose text-floral-bg text-[9px] font-extrabold rounded-full w-4 h-4 flex items-center justify-center border border-foreground shadow-[1px_1px_0px_0px_var(--foreground)]">
               {pendingList.length}
             </span>
           )}
         </button>
         <button
           onClick={() => setAdminTab("simulator")}
-          className={`pb-3 cursor-pointer ${adminTab === "simulator" ? "text-white border-b border-white" : "hover:text-white"}`}
+          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-2 transition-all duration-200 cursor-pointer ${adminTab === "simulator"
+            ? "bg-foreground text-background border-foreground shadow-[2px_2px_0px_0px_var(--foreground)]"
+            : `border-transparent ${lt ? "text-neutral-600 hover:text-black hover:border-foreground" : "text-neutral-450 hover:text-white hover:border-foreground"}`
+            }`}
         >
           {language === "pt" ? "simulador de plays" : "fanbase simulator"}
         </button>
         <button
           onClick={() => setAdminTab("deletions")}
-          className={`pb-3 cursor-pointer relative ${adminTab === "deletions" ? "text-white border-b border-white" : "hover:text-white"}`}
+          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-2 transition-all duration-200 cursor-pointer relative ${adminTab === "deletions"
+            ? "bg-foreground text-background border-foreground shadow-[2px_2px_0px_0px_var(--foreground)]"
+            : `border-transparent ${lt ? "text-neutral-600 hover:text-black hover:border-foreground" : "text-neutral-450 hover:text-white hover:border-foreground"}`
+            }`}
         >
           {language === "pt" ? "remoções pendentes" : "removal requests"}
           {deletionsList.length > 0 && (
-            <span className="absolute -top-1.5 -right-3.5 bg-rose text-floral-bg text-[9px] font-extrabold rounded-full w-4 h-4 flex items-center justify-center">
+            <span className="absolute -top-1.5 -right-1.5 bg-rose text-floral-bg text-[9px] font-extrabold rounded-full w-4 h-4 flex items-center justify-center border border-foreground shadow-[1px_1px_0px_0px_var(--foreground)]">
               {deletionsList.length}
             </span>
           )}

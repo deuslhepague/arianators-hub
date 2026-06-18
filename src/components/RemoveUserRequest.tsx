@@ -67,9 +67,9 @@ export default function RemoveUserRequest() {
   };
 
   return (
-    <div className={`glass-panel p-8 max-w-md mx-auto text-floral-fg animate-fade-in ${theme === "light" ? "bg-white border-neutral-200" : "bg-wine border-panel-border"}`}>
+    <div className="neobrutal-card p-8 max-w-md mx-auto text-floral-fg animate-fade-in">
       <div className="flex flex-col items-center text-center">
-        <div className="p-3 bg-red-950/20 border border-red-900 text-red-500 rounded-full mb-5">
+        <div className="p-3 bg-red-950/20 border-2 border-foreground text-red-500 rounded-none mb-5 shadow-[2px_2px_0px_0px_var(--foreground)]">
           <Trash2 className="w-8 h-8" />
         </div>
         
@@ -84,7 +84,7 @@ export default function RemoveUserRequest() {
         </p>
 
         {successMsg && (
-          <div className="w-full mb-6 p-4 rounded text-left bg-emerald-950/40 border border-emerald-900 text-emerald-400 text-xs flex gap-2.5 items-start leading-relaxed">
+          <div className="w-full mb-6 p-4 rounded-none text-left bg-emerald-950/40 border-2 border-foreground text-emerald-400 text-xs flex gap-2.5 items-start leading-relaxed shadow-[2px_2px_0px_0px_var(--foreground)]">
             <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
             <div>
               <strong className="block mb-0.5">
@@ -98,7 +98,7 @@ export default function RemoveUserRequest() {
         )}
 
         {errorMsg && (
-          <div className="w-full mb-6 p-4 rounded text-left bg-red-950/40 border border-red-900 text-red-400 text-xs flex gap-2.5 items-start leading-relaxed">
+          <div className="w-full mb-6 p-4 rounded-none text-left bg-red-950/40 border-2 border-foreground text-red-400 text-xs flex gap-2.5 items-start leading-relaxed shadow-[2px_2px_0px_0px_var(--foreground)]">
             <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
             <div>
               <strong className="block mb-0.5">
@@ -111,7 +111,7 @@ export default function RemoveUserRequest() {
 
         {user ? (
           // Logged in flow
-          <div className={`w-full p-6 border rounded-lg text-center ${theme === "light" ? "bg-neutral-50 border-neutral-200" : "bg-neutral-900/60 border-neutral-800"}`}>
+          <div className="w-full p-6 border-2 border-foreground bg-wine-deep/40 dark:bg-wine-deep/40 text-center shadow-[3px_3px_0px_0px_var(--foreground)]">
             <p className="text-xs text-neutral-400 mb-2">
               {language === "pt" ? "conectado como:" : "connected as:"}
             </p>
@@ -122,7 +122,7 @@ export default function RemoveUserRequest() {
             <button
               onClick={handleLoggedInSubmit}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-rose hover:bg-rose-dark disabled:opacity-50 text-floral-bg font-extrabold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-rose"
+              className="w-full flex items-center justify-center gap-2 px-6 py-3.5 neobrutal-btn disabled:opacity-50 text-foreground font-extrabold text-xs uppercase tracking-wider transition-colors cursor-pointer"
             >
               {loading 
                 ? (language === "pt" ? "processando..." : "processing...") 
@@ -132,7 +132,7 @@ export default function RemoveUserRequest() {
         ) : (
           // Not logged in flow
           <div className="w-full space-y-6">
-            <div className={`p-4 border rounded-lg text-center ${theme === "light" ? "bg-neutral-50 border-neutral-200" : "bg-neutral-900/60 border-neutral-800"}`}>
+            <div className="p-4 border-2 border-foreground bg-wine-deep/40 dark:bg-wine-deep/40 text-center shadow-[3px_3px_0px_0px_var(--foreground)]">
               <p className="text-xs text-neutral-400 mb-3 leading-relaxed">
                 {language === "pt"
                   ? "para uma solicitação instantânea e segura, conecte-se com sua conta do Spotify antes."
@@ -140,7 +140,7 @@ export default function RemoveUserRequest() {
               </p>
               <button
                 onClick={login}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-650 hover:bg-green-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer rounded"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-green-650 border-2 border-foreground text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-[2px_2px_0px_0px_var(--foreground)] hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[4px_4px_0px_0px_var(--foreground)] active:translate-x-[0px] active:translate-y-[0px] active:shadow-[2px_2px_0px_0px_var(--foreground)]"
               >
                 <LogIn className="w-4 h-4" />
                 {language === "pt" ? "entrar com spotify" : "login with spotify"}
@@ -148,11 +148,11 @@ export default function RemoveUserRequest() {
             </div>
 
             <div className="flex items-center my-4">
-              <div className="flex-1 border-t border-neutral-850"></div>
+              <div className="flex-1 border-t-2 border-foreground"></div>
               <span className="px-3 text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
                 {language === "pt" ? "ou digite manualmente" : "or enter manually"}
               </span>
-              <div className="flex-1 border-t border-neutral-850"></div>
+              <div className="flex-1 border-t-2 border-foreground"></div>
             </div>
 
             <form onSubmit={handleSubmitManual} className="w-full space-y-4">
@@ -166,7 +166,7 @@ export default function RemoveUserRequest() {
                   placeholder="e.g. your_spotify_id"
                   value={spotifyId}
                   onChange={(e) => setSpotifyId(e.target.value)}
-                  className={`w-full px-4 py-3 border rounded text-xs focus:outline-none focus:border-rose text-center font-mono ${theme === "light" ? "bg-neutral-50 border-neutral-300 text-neutral-900" : "bg-neutral-900 border-neutral-800 text-white"}`}
+                  className={`w-full px-4 py-3 border-2 border-foreground rounded-none text-xs focus:outline-none focus:border-rose text-center font-mono ${theme === "light" ? "bg-white text-neutral-900" : "bg-neutral-950 text-white"}`}
                   disabled={loading}
                 />
               </div>
@@ -174,7 +174,7 @@ export default function RemoveUserRequest() {
               <button
                 type="submit"
                 disabled={loading || !spotifyId.trim()}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-rose hover:bg-rose-dark disabled:opacity-50 text-floral-bg font-extrabold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-rose"
+                className="w-full flex items-center justify-center gap-2 px-6 py-3.5 neobrutal-btn disabled:opacity-50 text-foreground font-extrabold text-xs uppercase tracking-wider transition-colors cursor-pointer"
               >
                 {loading 
                   ? (language === "pt" ? "processando..." : "processing...") 

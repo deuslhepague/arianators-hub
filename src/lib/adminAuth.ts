@@ -1,3 +1,5 @@
+import crypto from "crypto";
+
 export interface AdminSessionPayload {
   authenticated: true;
   timestamp: string;
@@ -10,7 +12,13 @@ export function generateAdminSessionToken(): string {
     timestamp: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   };
-  return Buffer.from(JSON.stringify(payload)).toString("base64");
+  const payloadStr = JSON.stringify(payload);
+  const payloadBase64 = Buffer.from(payloadStr).toString("base64");
+  
+  const secret = process.env.ADMIN_PASSCODE || "fallback-secret-for-development";
+  const signature = crypto.createHmac("sha256", secret).update(payloadBase64).digest("base64");
+  
+  return `${payloadBase64}.${signature}`;
 }
 
 export function verifyAdminSessionToken(token: string | null | undefined): {
@@ -22,8 +30,24 @@ export function verifyAdminSessionToken(token: string | null | undefined): {
     return { valid: false, error: "Authorization token missing" };
   }
 
+  const parts = token.split(".");
+  if (parts.length !== 2) {
+    return { valid: false, error: "Invalid token format" };
+  }
+
+  const [payloadBase64, providedSignature] = parts;
+
   try {
-    const decoded = Buffer.from(token, "base64").toString("utf8");
+    const secret = process.env.ADMIN_PASSCODE || "fallback-secret-for-development";
+    const expectedSignature = crypto.createHmac("sha256", secret).update(payloadBase64).digest("base64");
+    
+    const expectedBuf = Buffer.from(expectedSignature);
+    const providedBuf = Buffer.from(providedSignature);
+    if (expectedBuf.length !== providedBuf.length || !crypto.timingSafeEqual(expectedBuf, providedBuf)) {
+      return { valid: false, error: "Invalid admin session token signature" };
+    }
+
+    const decoded = Buffer.from(payloadBase64, "base64").toString("utf8");
     const payload = JSON.parse(decoded) as AdminSessionPayload;
 
     if (!payload || payload.authenticated !== true || !payload.expiresAt) {

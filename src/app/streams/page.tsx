@@ -21,7 +21,9 @@ import {
   RefreshCw,
   ArrowDown,
   ArrowUp,
-  Check
+  Check,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 interface TrackStat {
@@ -63,7 +65,7 @@ interface AlbumStat {
   dailyPace?: number;
 }
 
-type StreamTab = "albums" | "tracks" | "milestones";
+type StreamTab = "albums" | "tracks" | "milestones" | "projections";
 type SortBy = "daily" | "total" | "pct";
 
 const getTrackGainDisplay = (track: TrackStat, language: string) => {
@@ -170,6 +172,13 @@ const SURPASSED_TARGETS = [
   { value: 5_000_000_000, label: "5B" },
 ];
 
+const getDaysDifference = (d1: Date, d2: Date) => {
+  const date1 = new Date(d1.getFullYear(), d1.getMonth(), d1.getDate());
+  const date2 = new Date(d2.getFullYear(), d2.getMonth(), d2.getDate());
+  const diffTime = date2.getTime() - date1.getTime();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
 export default function StreamsPage() {
   const { isAdmin } = useSpotify();
   const { theme } = useTheme();
@@ -242,6 +251,245 @@ export default function StreamsPage() {
   // Selected Album for Milestones Modal
   const [selectedAlbum, setSelectedAlbum] = useState<AlbumStat | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+
+  // Projections Tab States
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d;
+  });
+  const [currentCalendarDate, setCurrentCalendarDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d;
+  });
+  const [isMonthYearSelectorOpen, setIsMonthYearSelectorOpen] = useState(false);
+  const [projectionType, setProjectionType] = useState<"tracks" | "albums">("tracks");
+
+  const monthNamesPT = useMemo(() => [
+    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+  ], []);
+
+  const monthNamesEN = useMemo(() => [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ], []);
+
+  const monthAbbrPT = useMemo(() => [
+    "jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"
+  ], []);
+
+  const monthAbbrEN = useMemo(() => [
+    "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"
+  ], []);
+
+  const weekdayHeadersPT = useMemo(() => ["D", "S", "T", "Q", "Q", "S", "S"], []);
+  const weekdayHeadersEN = useMemo(() => ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"], []);
+
+  const handleMonthSelect = (monthIndex: number) => {
+    setCurrentCalendarDate(prev => {
+      const next = new Date(prev);
+      next.setMonth(monthIndex);
+      return next;
+    });
+    setIsMonthYearSelectorOpen(false);
+  };
+
+  const handleYearChange = (delta: number) => {
+    setCurrentCalendarDate(prev => {
+      const next = new Date(prev);
+      next.setFullYear(prev.getFullYear() + delta);
+      return next;
+    });
+  };
+
+  const handlePrevMonth = () => {
+    setCurrentCalendarDate(prev => {
+      const next = new Date(prev);
+      next.setMonth(prev.getMonth() - 1);
+      return next;
+    });
+  };
+
+  const handleNextMonth = () => {
+    setCurrentCalendarDate(prev => {
+      const next = new Date(prev);
+      next.setMonth(prev.getMonth() + 1);
+      return next;
+    });
+  };
+
+  const handleDayClick = (dayDate: Date) => {
+    setSelectedDate(dayDate);
+  };
+
+  const daysInMonth = useMemo(() => {
+    const year = currentCalendarDate.getFullYear();
+    const month = currentCalendarDate.getMonth();
+    const firstDayIndex = new Date(year, month, 1).getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    return { firstDayIndex, totalDays };
+  }, [currentCalendarDate]);
+
+  const refDate = useMemo(() => {
+    for (const t of tracks) {
+      if (t.streams) {
+        const dates = Object.keys(t.streams).sort();
+        if (dates.length > 0) {
+          const latestDate = dates[dates.length - 1];
+          if (latestDate) {
+            const [yr, mo, dy] = latestDate.split("-").map(Number);
+            return new Date(yr, mo - 1, dy);
+          }
+        }
+      }
+    }
+    if (lastUpdated) {
+      return new Date(lastUpdated);
+    }
+    return new Date();
+  }, [tracks, lastUpdated]);
+
+  const daysDiff = useMemo(() => {
+    const d1 = new Date(refDate.getFullYear(), refDate.getMonth(), refDate.getDate());
+    const d2 = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+    const diffTime = d2.getTime() - d1.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }, [refDate, selectedDate]);
+
+  const calendarCells = useMemo(() => {
+    const cells = [];
+    const { firstDayIndex, totalDays } = daysInMonth;
+    for (let i = 0; i < firstDayIndex; i++) {
+      cells.push({ type: "empty", value: i });
+    }
+    const year = currentCalendarDate.getFullYear();
+    const month = currentCalendarDate.getMonth();
+    for (let day = 1; day <= totalDays; day++) {
+      cells.push({
+        type: "day",
+        value: day,
+        date: new Date(year, month, day),
+      });
+    }
+    return cells;
+  }, [daysInMonth, currentCalendarDate]);
+
+  const projectedTracksList = useMemo(() => {
+    const diff = daysDiff > 0 ? daysDiff : 0;
+    
+    // Determine today's rank based on current totalStreams sorted descending
+    const todaySorted = [...tracks].sort((a, b) => b.totalStreams - a.totalStreams);
+
+    const projectedList = tracks.map(track => {
+      const currentMilestone = getMilestoneForStreams(track.totalStreams);
+      const dailyVelocity = track.dailyPace || track.dailyGain || 0;
+      const projectedTotal = track.totalStreams + diff * dailyVelocity;
+      const gained = diff * dailyVelocity;
+      const isMilestoneReached = projectedTotal >= currentMilestone.milestoneTarget;
+      
+      const todayRank = todaySorted.findIndex(x => x.id === track.id) + 1;
+
+      return {
+        ...track,
+        dailyVelocity,
+        projectedTotal,
+        gained,
+        isMilestoneReached,
+        milestoneTarget: currentMilestone.milestoneTarget,
+        milestoneName: currentMilestone.milestoneName,
+        todayRank
+      };
+    }).sort((a, b) => b.projectedTotal - a.projectedTotal);
+
+    // Calculate rank shift
+    return projectedList.map((track, projectedIdx) => {
+      const projectedRank = projectedIdx + 1;
+      const rankShift = track.todayRank - projectedRank;
+      return {
+        ...track,
+        projectedRank,
+        rankShift
+      };
+    });
+  }, [tracks, daysDiff]);
+
+  const projectedAlbumsList = useMemo(() => {
+    const diff = daysDiff > 0 ? daysDiff : 0;
+    
+    const filteredAlbums = albums.filter(album => {
+      const type = (
+        album.type === "studio" ? "studio" :
+        album.type === "ep" ? "ep" :
+        album.type === "compilation" ? "compilation" :
+        (
+          album.title.toLowerCase().includes("live") ||
+          album.title.toLowerCase().includes("sped up") ||
+          album.title.toLowerCase().includes("slowed") ||
+          album.title.toLowerCase().includes("acapella")
+        ) ? "other" : "studio"
+      );
+      return type === "studio";
+    });
+
+    // Determine today's rank based on current totalStreams sorted descending
+    const todaySorted = [...filteredAlbums].sort((a, b) => b.totalStreams - a.totalStreams);
+
+    const projectedList = filteredAlbums.map(album => {
+      const currentMilestone = getMilestoneForStreams(album.totalStreams);
+      const dailyVelocity = album.dailyPace || album.dailyGain || 0;
+      const projectedTotal = album.totalStreams + diff * dailyVelocity;
+      const gained = diff * dailyVelocity;
+      const isMilestoneReached = projectedTotal >= currentMilestone.milestoneTarget;
+
+      const todayRank = todaySorted.findIndex(x => x.id === album.id) + 1;
+
+      return {
+        ...album,
+        dailyVelocity,
+        projectedTotal,
+        gained,
+        isMilestoneReached,
+        milestoneTarget: currentMilestone.milestoneTarget,
+        milestoneName: currentMilestone.milestoneName,
+        todayRank
+      };
+    }).sort((a, b) => b.projectedTotal - a.projectedTotal);
+
+    // Calculate rank shift
+    return projectedList.map((album, projectedIdx) => {
+      const projectedRank = projectedIdx + 1;
+      const rankShift = album.todayRank - projectedRank;
+      return {
+        ...album,
+        projectedRank,
+        rankShift
+      };
+    });
+  }, [albums, daysDiff]);
+
+  const projectedGlobalDailyVelocity = useMemo(() => {
+    return projectedTracksList.reduce((sum, t) => sum + (t.dailyVelocity || 0), 0);
+  }, [projectedTracksList]);
+
+  const currentGlobalTotal = useMemo(() => {
+    return tracks.reduce((sum, t) => sum + (t.totalStreams || 0), 0);
+  }, [tracks]);
+
+  const projectedGlobalTotal = useMemo(() => {
+    return projectedTracksList.reduce((sum, t) => sum + t.projectedTotal, 0);
+  }, [projectedTracksList]);
+
+  const globalGained = useMemo(() => {
+    return projectedGlobalTotal - currentGlobalTotal;
+  }, [projectedGlobalTotal, currentGlobalTotal]);
+
+  const currentMonthName = useMemo(() => {
+    return language === "pt"
+      ? monthNamesPT[currentCalendarDate.getMonth()]
+      : monthNamesEN[currentCalendarDate.getMonth()];
+  }, [language, currentCalendarDate, monthNamesPT, monthNamesEN]);
 
   const handleSelectTrack = async (track: TrackStat) => {
     if (tracksCache[track.id]) {
@@ -841,10 +1089,10 @@ export default function StreamsPage() {
 
       <div className="border-2 border-black dark:border-white p-6 lg:p-8 bg-panel-bg shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,1)]">
         {/* Segment control */}
-        <div className="flex border-2 border-black dark:border-white max-w-sm mb-6 bg-panel-bg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
+        <div className="flex border-2 border-black dark:border-white max-w-md mb-6 bg-panel-bg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)]">
           <button
             onClick={() => setStreamTab("albums")}
-            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border-r-2 border-black dark:border-white last:border-r-0 ${streamTab === "albums"
+            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border-r-2 border-black dark:border-white ${streamTab === "albums"
               ? "bg-black text-white dark:bg-white dark:text-black font-extrabold"
               : "text-neutral-500 dark:text-mauve hover:bg-neutral-100 dark:hover:bg-neutral-900"
               }`}
@@ -853,7 +1101,7 @@ export default function StreamsPage() {
           </button>
           <button
             onClick={() => setStreamTab("tracks")}
-            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border-r-2 border-black dark:border-white last:border-r-0 ${streamTab === "tracks"
+            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border-r-2 border-black dark:border-white ${streamTab === "tracks"
               ? "bg-black text-white dark:bg-white dark:text-black font-extrabold"
               : "text-neutral-500 dark:text-mauve hover:bg-neutral-100 dark:hover:bg-neutral-900"
               }`}
@@ -862,12 +1110,21 @@ export default function StreamsPage() {
           </button>
           <button
             onClick={() => setStreamTab("milestones")}
-            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${streamTab === "milestones"
+            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border-r-2 border-black dark:border-white ${streamTab === "milestones"
               ? "bg-black text-white dark:bg-white dark:text-black font-extrabold"
               : "text-neutral-500 dark:text-mauve hover:bg-neutral-100 dark:hover:bg-neutral-900"
               }`}
           >
             {language === "pt" ? "metas" : "milestones"}
+          </button>
+          <button
+            onClick={() => setStreamTab("projections")}
+            className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${streamTab === "projections"
+              ? "bg-black text-white dark:bg-white dark:text-black font-extrabold"
+              : "text-neutral-500 dark:text-mauve hover:bg-neutral-100 dark:hover:bg-neutral-900"
+              }`}
+          >
+            {language === "pt" ? "projeções" : "projections"}
           </button>
         </div>
 
@@ -882,7 +1139,7 @@ export default function StreamsPage() {
         </div>
 
         {/* Last Updated + Search Bar + Sort controls */}
-        {streamTab !== "milestones" && (
+        {streamTab !== "milestones" && streamTab !== "projections" && (
           <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-6 border-b ${theme === "light" ? "border-neutral-200" : "border-neutral-900"}`}>
             <div>
               <div className="flex items-center gap-2">
@@ -1635,6 +1892,426 @@ export default function StreamsPage() {
             )}
           </div>
         )}
+
+            {/* PROJECTIONS CALCULATOR */}
+            {streamTab === "projections" && (
+              <div className="space-y-6 animate-fade-in">
+                {/* Header info */}
+                <div className={`border-b pb-4 ${theme === "light" ? "border-neutral-200" : "border-neutral-900"}`}>
+                  <h3 className="text-xl font-serif font-bold text-rose lowercase tracking-wide">
+                    {language === "pt" ? "calculadora de projeções de streams" : "streaming projections calculator"}
+                  </h3>
+                  <p className={`text-xs mt-1.5 ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
+                    {language === "pt"
+                      ? "selecione uma data no calendário para estimar os streams futuros com base na velocidade diária atual."
+                      : "select a date on the calendar to estimate future streams based on current daily gains."}
+                  </p>
+                </div>
+
+                <div className="flex flex-col lg:flex-row gap-8 items-start">
+                  {/* Left Column: Custom Calendar Component */}
+                  <div className="w-full lg:w-80 flex-shrink-0">
+                    <div className="border-2 border-black dark:border-white bg-panel-bg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)] p-4 select-none">
+                      {isMonthYearSelectorOpen ? (
+                        /* Month and Year selector (Windows style) */
+                        <div className="space-y-4">
+                          {/* Header showing year with up/down navigation */}
+                          <div className="flex items-center justify-between border-b pb-2 border-panel-border/20">
+                            <span className="font-serif font-bold text-lg text-rose">
+                              {currentCalendarDate.getFullYear()}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleYearChange(-1)}
+                                className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-900 border border-panel-border/25 cursor-pointer text-foreground"
+                                title={language === "pt" ? "Ano anterior" : "Previous year"}
+                              >
+                                <ArrowDown className="w-4 h-4 transform rotate-90" />
+                              </button>
+                              <button
+                                onClick={() => handleYearChange(1)}
+                                className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-900 border border-panel-border/25 cursor-pointer text-foreground"
+                                title={language === "pt" ? "Próximo ano" : "Next year"}
+                              >
+                                <ArrowUp className="w-4 h-4 transform rotate-90" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* 3x4 Month Grid */}
+                          <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                            {(language === "pt" ? monthAbbrPT : monthAbbrEN).map((monthName, idx) => {
+                              const isSelectedMonth = currentCalendarDate.getMonth() === idx;
+                              return (
+                                <button
+                                  key={monthName}
+                                  onClick={() => handleMonthSelect(idx)}
+                                  className={`py-2 border transition-all cursor-pointer font-semibold uppercase tracking-wider rounded-none ${
+                                    isSelectedMonth
+                                      ? (theme === "light" ? "bg-black border-black text-white" : "bg-rose border-rose text-floral-bg")
+                                      : "border-transparent hover:border-black dark:hover:border-white hover:bg-neutral-50 dark:hover:bg-neutral-900"
+                                  }`}
+                                >
+                                  {monthName}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Cancel Month selection button */}
+                          <button
+                            onClick={() => setIsMonthYearSelectorOpen(false)}
+                            className="w-full py-1 text-[10px] uppercase font-bold tracking-widest border border-dashed border-panel-border/40 hover:border-solid hover:bg-neutral-50 dark:hover:bg-neutral-900 text-mauve cursor-pointer"
+                          >
+                            {language === "pt" ? "voltar ao calendário" : "back to calendar"}
+                          </button>
+                        </div>
+                      ) : (
+                        /* Regular Days Calendar Picker */
+                        <div className="space-y-4">
+                          {/* Header with Month/Year toggle and navigation */}
+                          <div className="flex items-center justify-between border-b pb-2 border-panel-border/20">
+                            <button
+                              onClick={handlePrevMonth}
+                              className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-900 border border-panel-border/25 cursor-pointer text-foreground"
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            
+                            <button
+                              onClick={() => setIsMonthYearSelectorOpen(true)}
+                              className="font-serif font-bold text-base hover:text-rose transition-colors cursor-pointer capitalize"
+                              title={language === "pt" ? "Selecionar mês e ano" : "Select month and year"}
+                            >
+                              {currentMonthName} {currentCalendarDate.getFullYear()}
+                            </button>
+
+                            <button
+                              onClick={handleNextMonth}
+                              className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-900 border border-panel-border/25 cursor-pointer text-foreground"
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          {/* Weekday headers */}
+                          <div className="grid grid-cols-7 text-center text-[10px] font-bold uppercase tracking-wider text-neutral-400 dark:text-mauve mb-1">
+                            {(language === "pt" ? weekdayHeadersPT : weekdayHeadersEN).map((day, idx) => (
+                              <div key={idx} className="py-1">{day}</div>
+                            ))}
+                          </div>
+
+                          {/* Days Grid */}
+                          <div className="grid grid-cols-7 gap-1 text-center text-xs font-mono">
+                            {calendarCells.map((cell, idx) => {
+                              if (cell.type === "empty") {
+                                return <div key={`empty-${idx}`} />;
+                              }
+
+                              const cellDate = cell.date as Date;
+                              const isSelected = selectedDate.getDate() === cellDate.getDate() &&
+                                                 selectedDate.getMonth() === cellDate.getMonth() &&
+                                                 selectedDate.getFullYear() === cellDate.getFullYear();
+                                                 
+                              const today = new Date();
+                              const isToday = today.getDate() === cellDate.getDate() &&
+                                              today.getMonth() === cellDate.getMonth() &&
+                                              today.getFullYear() === cellDate.getFullYear();
+                                              
+                              // Check if cell is in the past compared to reference date
+                              const isPast = getDaysDifference(refDate, cellDate) < 0;
+
+                              return (
+                                <button
+                                  key={`day-${cell.value}`}
+                                  onClick={() => handleDayClick(cellDate)}
+                                  className={`aspect-square w-full flex flex-col items-center justify-center relative border transition-all cursor-pointer ${
+                                    isSelected
+                                      ? (theme === "light" ? "bg-black border-black text-white font-bold" : "bg-rose border-rose text-floral-bg font-bold")
+                                      : isPast
+                                        ? "border-transparent text-neutral-300 dark:text-neutral-700 hover:bg-neutral-50 dark:hover:bg-neutral-900/40"
+                                        : "border-transparent hover:border-neutral-300 dark:hover:border-neutral-850 hover:bg-neutral-50 dark:hover:bg-neutral-900"
+                                  }`}
+                                >
+                                  <span>{cell.value}</span>
+                                  {isToday && (
+                                    <span className={`absolute bottom-0.5 w-1 h-1 rounded-full ${isSelected ? "bg-white dark:bg-black" : "bg-rose"}`} />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right Column: Projections Results */}
+                  <div className="flex-1 w-full lg:w-auto min-w-0 space-y-6">
+                    {/* Result header & summary box */}
+                    <div className="border-2 border-black dark:border-white bg-panel-bg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)] p-6 space-y-4">
+                      <div>
+                        <span className="neobrutal-sticker neobrutal-sticker-rose mb-2">
+                          {language === "pt" ? "resultados da projeção" : "projection results"}
+                        </span>
+                        <h4 className="text-xl md:text-2xl font-serif font-bold text-rose leading-tight">
+                          {selectedDate.toLocaleDateString(language === "pt" ? "pt-BR" : "en-US", {
+                            weekday: "long",
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric"
+                          })}
+                        </h4>
+                        <p className={`text-xs font-mono mt-1 ${theme === "light" ? "text-neutral-500" : "text-mauve"}`}>
+                          {daysDiff > 0 ? (
+                            language === "pt"
+                              ? `daqui a ${daysDiff} dias (velocidade diária: +${formatNumber(projectedGlobalDailyVelocity)}/dia)`
+                              : `in ${daysDiff} days (daily velocity: +${formatNumber(projectedGlobalDailyVelocity)}/day)`
+                          ) : (
+                            language === "pt"
+                              ? "data no passado/hoje. exibindo dados de streams atuais."
+                              : "date is in the past/today. showing current stream data."
+                          )}
+                        </p>
+                      </div>
+
+                      {daysDiff < 0 && (
+                        <div className="p-3 border-2 border-dashed border-red-500/50 bg-red-500/5 text-red-500 text-xs rounded-none font-mono">
+                          {language === "pt"
+                            ? "nota: datas anteriores ao último registro de banco de dados não mostram estimativas decrescentes, exibem apenas os streams totais mais recentes."
+                            : "note: dates before the last database record do not show decreasing estimates, they only display the most recent total streams."}
+                        </div>
+                      )}
+
+                      {/* Summary grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-panel-border/20 pt-4 font-mono">
+                        <div className="p-4 bg-neutral-50 dark:bg-neutral-950/40 border border-panel-border/25">
+                          <span className="text-[10px] text-mauve uppercase block mb-1">
+                            {language === "pt" ? "Streams Totais Projetados" : "Projected Total Streams"}
+                          </span>
+                          <span className="text-2xl font-extrabold text-rose">
+                            {formatNumber(projectedGlobalTotal)}
+                          </span>
+                        </div>
+
+                        <div className="p-4 bg-neutral-50 dark:bg-neutral-950/40 border border-panel-border/25">
+                          <span className="text-[10px] text-mauve uppercase block mb-1">
+                            {language === "pt" ? "Novos Streams Acumulados" : "New Streams Gained"}
+                          </span>
+                          <span className="text-2xl font-extrabold text-emerald-500">
+                            +{formatNumber(globalGained)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sub-tabs for Tracks / Albums list toggle */}
+                    <div className="border-2 border-black dark:border-white bg-panel-bg shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] dark:shadow-[3px_3px_0px_0px_rgba(255,255,255,1)] p-6 space-y-4">
+                      <div className="flex border-b border-panel-border/20 pb-4 justify-between items-center flex-wrap gap-3">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setProjectionType("tracks")}
+                            className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider border transition-all cursor-pointer ${
+                              projectionType === "tracks"
+                                ? (theme === "light" ? "bg-black border-black text-white" : "bg-rose border-rose text-floral-bg")
+                                : "border-panel-border/40 text-mauve hover:text-rose"
+                            }`}
+                          >
+                            {language === "pt" ? "músicas" : "tracks"}
+                          </button>
+                          <button
+                            onClick={() => setProjectionType("albums")}
+                            className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider border transition-all cursor-pointer ${
+                              projectionType === "albums"
+                                ? (theme === "light" ? "bg-black border-black text-white" : "bg-rose border-rose text-floral-bg")
+                                : "border-panel-border/40 text-mauve hover:text-rose"
+                            }`}
+                          >
+                            {language === "pt" ? "álbuns" : "albums"}
+                          </button>
+                        </div>
+
+                        <span className="text-[10px] font-mono text-mauve">
+                          {language === "pt" ? "ordenado por total projetado" : "sorted by projected total"}
+                        </span>
+                      </div>
+
+                      {/* List Content */}
+                      <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                        {projectionType === "tracks" ? (
+                          projectedTracksList.map((track, idx) => (
+                            <div
+                              key={track.id}
+                              onClick={() => handleSelectTrack(track as any)}
+                              className={`flex items-center justify-between p-2.5 sm:p-4 rounded border transition-all cursor-pointer group ${
+                                theme === "light"
+                                  ? "border-transparent hover:border-neutral-300 hover:bg-neutral-50"
+                                  : "border-transparent hover:border-neutral-800 hover:bg-neutral-950/60"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                                {/* Rank and Shift column */}
+                                <div className="flex items-center gap-1.5 sm:gap-2.5 w-12 sm:w-20 flex-shrink-0">
+                                  <span className={`text-xs sm:text-sm md:text-base font-extrabold w-4 sm:w-6 text-right ${
+                                    theme === "light" ? "text-neutral-955" : "text-white"
+                                  }`}>
+                                    {track.projectedRank}
+                                  </span>
+
+                                  <div className="w-8 sm:w-10 flex justify-center">
+                                    {track.rankShift === 0 || track.rankShift === null || track.rankShift === undefined ? (
+                                      <span className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                        theme === "light" ? "bg-neutral-100 text-neutral-400" : "bg-neutral-900/60 text-neutral-500 border border-neutral-850"
+                                      }`}>
+                                        —
+                                      </span>
+                                    ) : track.rankShift > 0 ? (
+                                      <div aria-label="Chart position moved up" className={`h-5 sm:h-6 px-1 sm:px-1.5 rounded-full flex items-center justify-center gap-0.5 text-[10px] sm:text-xs font-bold ${
+                                        theme === "light" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-emerald-950/30 text-emerald-400 border border-emerald-900/40"
+                                      }`}>
+                                        <svg data-encore-id="icon" role="img" aria-hidden="true" className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current flex-shrink-0" viewBox="0 0 24 24">
+                                          <path d="M3.5 13.414a.999.999 0 0 1-.707-1.707l9.2-9.207 9.202 9.207a1 1 0 1 1-1.413 1.414L13 6.335V20.5a1 1 0 0 1-2 0V6.322l-6.794 6.799a.999.999 0 0 1-.707.293z"></path>
+                                        </svg>
+                                        <span>{track.rankShift}</span>
+                                      </div>
+                                    ) : (
+                                      <div aria-label="Chart position moved down" className={`h-5 sm:h-6 px-1 sm:px-1.5 rounded-full flex items-center justify-center gap-0.5 text-[10px] sm:text-xs font-bold ${
+                                        theme === "light" ? "bg-red-50 text-red-655 border border-red-200" : "bg-red-955/20 text-red-400 border border-red-900/40"
+                                      }`}>
+                                        <svg data-encore-id="icon" role="img" aria-hidden="true" className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current flex-shrink-0" viewBox="0 0 24 24">
+                                          <path d="M3.5 10.586a1 1 0 0 0-.707 1.707l9.2 9.207 9.202-9.207a1 1 0 1 0-1.413-1.414L13 17.665V3.5a1 1 0 1 0-2 0v14.178l-6.794-6.8a1 1 0 0 0-.707-.292z"></path>
+                                        </svg>
+                                        <span>{Math.abs(track.rankShift)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <img
+                                  src={track.coverUrl}
+                                  alt={track.title}
+                                  className={`w-10 h-10 sm:w-14 sm:h-14 rounded object-cover border flex-shrink-0 ${
+                                    theme === "light" ? "border-neutral-200" : "border-neutral-900"
+                                  }`}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <span className={`text-sm sm:text-base md:text-lg font-bold block leading-tight group-hover:underline truncate ${
+                                    theme === "light" ? "text-neutral-955" : "text-white"
+                                  }`}>
+                                    {track.title}
+                                  </span>
+                                  <span className={`text-[10px] sm:text-xs block mt-0.5 sm:mt-1 truncate ${
+                                    theme === "light" ? "text-neutral-600" : "text-neutral-400"
+                                  }`}>
+                                    {track.artist}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="text-right font-mono flex-shrink-0 pl-1">
+                                <span className={`text-sm sm:text-base md:text-lg font-bold block ${
+                                  theme === "light" ? "text-neutral-955" : "text-white"
+                                }`}>
+                                  {formatNumber(track.projectedTotal)}
+                                </span>
+                                <div className="flex items-center justify-end gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
+                                  <span className="text-[10px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                    +{formatNumber(track.gained)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          projectedAlbumsList.map((album, idx) => (
+                            <div
+                              key={album.id}
+                              onClick={() => handleSelectAlbum(album as any)}
+                              className={`flex items-center justify-between p-2.5 sm:p-4 rounded border transition-all cursor-pointer group ${
+                                theme === "light"
+                                  ? "border-transparent hover:border-neutral-300 hover:bg-neutral-50"
+                                  : "border-transparent hover:border-neutral-800 hover:bg-neutral-950/60"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+                                {/* Rank and Shift column */}
+                                <div className="flex items-center gap-1.5 sm:gap-2.5 w-12 sm:w-20 flex-shrink-0">
+                                  <span className={`text-xs sm:text-sm md:text-base font-extrabold w-4 sm:w-6 text-right ${
+                                    theme === "light" ? "text-neutral-955" : "text-white"
+                                  }`}>
+                                    {album.projectedRank}
+                                  </span>
+                                  <div className="w-8 sm:w-10 flex justify-center">
+                                    {album.rankShift === 0 || album.rankShift === null || album.rankShift === undefined ? (
+                                      <span className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                        theme === "light" ? "bg-neutral-100 text-neutral-400" : "bg-neutral-900/60 text-neutral-500 border border-neutral-850"
+                                      }`}>
+                                        —
+                                      </span>
+                                    ) : album.rankShift > 0 ? (
+                                      <div aria-label="Chart position moved up" className={`h-5 sm:h-6 px-1 sm:px-1.5 rounded-full flex items-center justify-center gap-0.5 text-[10px] sm:text-xs font-bold ${
+                                        theme === "light" ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-emerald-950/30 text-emerald-400 border border-emerald-900/40"
+                                      }`}>
+                                        <svg data-encore-id="icon" role="img" aria-hidden="true" className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current flex-shrink-0" viewBox="0 0 24 24">
+                                          <path d="M3.5 13.414a.999.999 0 0 1-.707-1.707l9.2-9.207 9.202 9.207a1 1 0 1 1-1.413 1.414L13 6.335V20.5a1 1 0 0 1-2 0V6.322l-6.794 6.799a.999.999 0 0 1-.707.293z"></path>
+                                        </svg>
+                                        <span>{album.rankShift}</span>
+                                      </div>
+                                    ) : (
+                                      <div aria-label="Chart position moved down" className={`h-5 sm:h-6 px-1 sm:px-1.5 rounded-full flex items-center justify-center gap-0.5 text-[10px] sm:text-xs font-bold ${
+                                        theme === "light" ? "bg-red-50 text-red-655 border border-red-200" : "bg-red-955/20 text-red-400 border border-red-900/40"
+                                      }`}>
+                                        <svg data-encore-id="icon" role="img" aria-hidden="true" className="w-2.5 h-2.5 sm:w-3 sm:h-3 fill-current flex-shrink-0" viewBox="0 0 24 24">
+                                          <path d="M3.5 10.586a1 1 0 0 0-.707 1.707l9.2 9.207 9.202-9.207a1 1 0 1 0-1.413-1.414L13 17.665V3.5a1 1 0 1 0-2 0v14.178l-6.794-6.8a1 1 0 0 0-.707-.292z"></path>
+                                        </svg>
+                                        <span>{Math.abs(album.rankShift)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <img
+                                  src={album.coverUrl}
+                                  alt={album.title}
+                                  className={`w-10 h-10 sm:w-14 sm:h-14 rounded object-cover border flex-shrink-0 ${
+                                    theme === "light" ? "border-neutral-200" : "border-neutral-900"
+                                  }`}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <span className={`text-sm sm:text-base md:text-lg font-bold block leading-tight group-hover:underline truncate ${
+                                    theme === "light" ? "text-neutral-955" : "text-white"
+                                  }`}>
+                                    {album.title}
+                                  </span>
+                                  <span className={`text-[10px] sm:text-xs block mt-0.5 sm:mt-1 truncate ${
+                                    theme === "light" ? "text-neutral-600" : "text-neutral-400"
+                                  }`}>
+                                    {album.year}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="text-right font-mono flex-shrink-0 pl-1">
+                                <span className={`text-sm sm:text-base md:text-lg font-bold block ${
+                                  theme === "light" ? "text-neutral-955" : "text-white"
+                                }`}>
+                                  {formatNumber(album.projectedTotal)}
+                                </span>
+                                <div className="flex items-center justify-end gap-1.5 sm:gap-2 mt-0.5 sm:mt-1">
+                                  <span className="text-[10px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                    +{formatNumber(album.gained)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
       </div>
 
       {/* MILESTONE PROGRESS MODAL POPUP */}

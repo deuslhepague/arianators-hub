@@ -596,9 +596,9 @@ export default function PlaylistGenerator() {
 
 
   return (
-    <section className="glass-panel p-6 lg:p-10 space-y-8 animate-fade-in text-floral-fg" id="generator">
-      <div className={`flex items-center gap-4 border-b pb-6 ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}>
-        <div className={`p-3 rounded border ${theme === "light" ? "bg-neutral-100 border-neutral-200 text-black" : "bg-neutral-900 border-neutral-800 text-white"}`}>
+    <section className="neobrutal-card p-6 lg:p-10 space-y-8 animate-fade-in text-floral-fg" id="generator">
+      <div className="flex items-center gap-4 border-b-2 border-foreground pb-6">
+        <div className={`p-3 rounded-none border-2 border-foreground shadow-[2px_2px_0px_0px_var(--foreground)] ${theme === "light" ? "bg-neutral-100 text-black" : "bg-neutral-900 text-white"}`}>
           <Music className="w-8 h-8" />
         </div>
         <div>
@@ -616,13 +616,13 @@ export default function PlaylistGenerator() {
         <div className="lg:col-span-2 space-y-8">
 
           {/* 1. SELECT FOCUS TRACK */}
-          <div className={`border p-6 rounded space-y-4 ${theme === "light" ? "bg-white border-neutral-200 text-neutral-900" : "bg-wine-dark/40 border-panel-border text-white"}`}>
+          <div className="neobrutal-card p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className={`text-base font-bold uppercase tracking-wider ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
                 {language === "pt" ? "tabela 1: música foco" : "1. focus track"}
               </h3>
               <span className={`text-xs font-mono ${theme === "light" ? "text-neutral-500" : "text-neutral-400"}`}>
-                {language === "pt" ? "meta ativa" : "active target"}
+                {language === "pt" ? "meta activa" : "active target"}
               </span>
             </div>
 
@@ -635,7 +635,7 @@ export default function PlaylistGenerator() {
             <select
               value={selectedFocusId}
               onChange={(e) => setSelectedFocusId(e.target.value)}
-              className={`w-full border rounded px-3 py-3 text-base focus:outline-none cursor-pointer font-serif ${theme === "light" ? "bg-white border-neutral-300 text-neutral-950 focus:border-black" : "bg-neutral-950 border-neutral-900 text-white focus:border-white"}`}
+              className={`w-full border-2 border-foreground rounded-none px-3 py-3 text-base focus:outline-none cursor-pointer font-serif ${theme === "light" ? "bg-white text-neutral-950 focus:border-black" : "bg-neutral-950 text-white focus:border-white"}`}
             >
               {DATABASE_HITS.map((opt) => (
                 <option key={opt.id} value={opt.id}>
@@ -644,7 +644,7 @@ export default function PlaylistGenerator() {
               ))}
             </select>
 
-            <div className={`text-xs space-y-1.5 p-4 rounded border font-mono max-h-36 overflow-y-auto ${theme === "light" ? "bg-neutral-50 border-neutral-200 text-neutral-600" : "bg-neutral-950/60 border-neutral-900 text-neutral-400"}`}>
+            <div className={`text-xs space-y-1.5 p-4 border-2 border-foreground rounded-none font-mono max-h-36 overflow-y-auto ${theme === "light" ? "bg-neutral-50 text-neutral-600" : "bg-neutral-950/60 text-neutral-400"}`}>
               {activeFocusTrack.versions.map((url, i) => (
                 <div key={i} className="truncate">{i + 1}: {url}</div>
               ))}
@@ -652,7 +652,7 @@ export default function PlaylistGenerator() {
           </div>
 
           {/* 2. SUPPORTING HITS LIST & SEARCH */}
-          <div className={`border p-6 rounded space-y-6 ${theme === "light" ? "bg-white border-neutral-200 text-neutral-900" : "bg-wine-dark/40 border-panel-border text-white"}`}>
+          <div className="neobrutal-card p-6 space-y-6">
             <div>
               <h3 className={`text-base font-bold uppercase tracking-wider mb-1.5 ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
                 {language === "pt" ? "tabela 2: hits de apoio" : "2. supporting hits"}
@@ -678,12 +678,12 @@ export default function PlaylistGenerator() {
                     ? "buscar hits no banco de dados... (ex: everyday, pov, needy)"
                     : "search database hits to add... (e.g. everyday, pov, needy)"
                 }
-                className={`w-full pl-10 pr-4 py-2.5 border rounded text-sm focus:outline-none font-serif ${theme === "light" ? "bg-white border-neutral-300 text-neutral-950 focus:border-black placeholder-neutral-400" : "bg-neutral-950 border-neutral-900 text-white focus:border-white placeholder-neutral-600"}`}
+                className={`w-full pl-10 pr-4 py-2.5 border-2 border-foreground rounded-none text-sm focus:outline-none font-serif ${theme === "light" ? "bg-white text-neutral-950 placeholder-neutral-500" : "bg-neutral-950 text-white placeholder-neutral-400"}`}
               />
 
               {/* Search dropdown results */}
               {searchResults.length > 0 && (
-                <div className={`absolute left-0 right-0 mt-2 border rounded shadow-2xl max-h-48 overflow-y-auto z-30 divide-y ${theme === "light" ? "bg-white border-neutral-200 divide-neutral-100" : "bg-neutral-950 border-neutral-800 divide-neutral-900"}`}>
+                <div className={`absolute left-0 right-0 mt-2 border-2 border-foreground rounded-none shadow-2xl max-h-48 overflow-y-auto z-30 divide-y-2 divide-foreground ${theme === "light" ? "bg-white text-neutral-950" : "bg-neutral-950 text-white"}`}>
                   {searchResults.map((hit) => (
                     <button
                       key={hit.id}
@@ -706,7 +706,7 @@ export default function PlaylistGenerator() {
                 {language === "pt" ? "hits de apoio ativos:" : "active supporting hits:"}
               </span>
               {selectedHitIds.length === 0 ? (
-                <div className={`text-center py-6 border border-dashed rounded text-sm ${theme === "light" ? "border-neutral-300 text-neutral-500" : "border-neutral-850 text-neutral-400"}`}>
+                <div className="text-center py-6 border-2 border-dashed border-foreground rounded-none text-sm bg-wine-deep/10">
                   {language === "pt"
                     ? "nenhum hit de apoio selecionado. busque e adicione acima."
                     : "no supporting hits selected. search and add some above."}
@@ -719,13 +719,13 @@ export default function PlaylistGenerator() {
                     return (
                       <div
                         key={hitId}
-                        className={`flex flex-wrap items-center gap-3 px-3 py-1.5 border rounded text-xs font-semibold font-mono ${theme === "light" ? "bg-neutral-50 border-neutral-200 text-neutral-800" : "bg-neutral-950 border-neutral-900 text-white"}`}
+                        className={`flex flex-wrap items-center gap-3 px-3 py-1.5 border-2 border-foreground rounded-none text-xs font-semibold font-mono shadow-[2px_2px_0px_0px_var(--foreground)] ${theme === "light" ? "bg-neutral-100 text-neutral-850" : "bg-neutral-900 text-white"}`}
                       >
                         <span className="truncate max-w-[150px] sm:max-w-[200px]" title={hitDef.name}>
                           {hitDef.name}
                         </span>
-                        <div className="flex items-center gap-1 border-l pl-2 border-neutral-350 dark:border-neutral-800">
-                          <span className={`text-[10px] uppercase font-bold ${theme === "light" ? "text-neutral-400" : "text-neutral-500"}`}>
+                        <div className="flex items-center gap-1 border-l pl-2 border-foreground">
+                          <span className="text-[10px] uppercase font-bold text-neutral-500">
                             {language === "pt" ? "versões:" : "versions:"}
                           </span>
                           <input
@@ -740,12 +740,12 @@ export default function PlaylistGenerator() {
                                 [hitId]: val
                               }));
                             }}
-                            className={`w-10 text-center rounded border focus:outline-none focus:border-white font-mono text-xs ${theme === "light"
-                              ? "bg-white border-neutral-350 text-black focus:border-black"
-                              : "bg-neutral-900 border-neutral-800 text-white"
+                            className={`w-10 text-center rounded-none border-2 border-foreground focus:outline-none font-mono text-xs ${theme === "light"
+                              ? "bg-white text-black"
+                              : "bg-neutral-950 text-white"
                               }`}
                           />
-                          <span className={`text-[10px] ${theme === "light" ? "text-neutral-400" : "text-neutral-500"}`}>
+                          <span className="text-[10px] text-neutral-500">
                             / {hitDef.versions.length}
                           </span>
                         </div>
@@ -763,7 +763,7 @@ export default function PlaylistGenerator() {
               )}
             </div>
 
-            <div className={`text-xs pt-4 border-t flex justify-between font-mono ${theme === "light" ? "border-neutral-200 text-neutral-600" : "border-neutral-900/60 text-neutral-400"}`}>
+            <div className="text-xs pt-4 border-t-2 border-foreground flex justify-between font-mono">
               <span>{language === "pt" ? "músicas de apoio no mix:" : "supporting tracks loaded in mix:"}</span>
               <span className={`font-bold ${theme === "light" ? "text-neutral-950" : "text-white"}`}>{getTabela2Tracks().length} slots</span>
             </div>
@@ -771,7 +771,7 @@ export default function PlaylistGenerator() {
 
           {/* 3. FILLERS & SHORTS DETAILS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className={`border p-5 rounded ${theme === "light" ? "bg-white border-neutral-200 text-neutral-900" : "bg-wine-dark/40 border-panel-border text-white"}`}>
+            <div className="border-2 border-foreground p-5 shadow-[2px_2px_0px_0px_var(--foreground)] rounded-none">
               <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
                 {language === "pt" ? "tabela 3: interlúdios (fillers)" : "3. filler tracks"}
               </h3>
@@ -781,7 +781,7 @@ export default function PlaylistGenerator() {
                   : `utilizes ${DEFAULT_FILLER_TRACKS.length} non-ariana interludes to optimize streams.`}
               </p>
             </div>
-            <div className={`border p-5 rounded ${theme === "light" ? "bg-white border-neutral-200 text-neutral-900" : "bg-wine-dark/40 border-panel-border text-white"}`}>
+            <div className="border-2 border-foreground p-5 shadow-[2px_2px_0px_0px_var(--foreground)] rounded-none">
               <h3 className={`text-sm font-bold uppercase tracking-wider mb-2 ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
                 {language === "pt" ? "músicas curtas" : "4. short tracks"}
               </h3>
@@ -795,8 +795,8 @@ export default function PlaylistGenerator() {
         </div>
 
         {/* Right Column: Mix & Loop Algorithm Parameters */}
-        <div className={`border p-6 rounded space-y-6 ${theme === "light" ? "bg-neutral-50 border-neutral-200 text-neutral-900" : "bg-neutral-950/60 border-panel-border text-white"}`}>
-          <h3 className={`text-base font-bold uppercase tracking-wider flex items-center gap-2 border-b pb-4 ${theme === "light" ? "text-neutral-950 border-neutral-200" : "text-white border-panel-border"}`}>
+        <div className="neobrutal-card p-6 space-y-6">
+          <h3 className={`text-base font-bold uppercase tracking-wider flex items-center gap-2 border-b-2 border-foreground pb-4 ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
             <Settings className="w-5 h-5" />
             {language === "pt" ? "parâmetros de mix" : "mixing parameters"}
           </h3>
@@ -812,9 +812,9 @@ export default function PlaylistGenerator() {
                 max={20}
                 value={repetitions}
                 onChange={(e) => setRepetitions(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
-                className={`w-full border rounded px-3 py-2.5 text-sm focus:outline-none ${theme === "light" ? "bg-white border-neutral-350 text-neutral-950 focus:border-black" : "bg-neutral-900 border-neutral-850 text-white focus:border-white"}`}
+                className={`w-full border-2 border-foreground rounded-none px-3 py-2.5 text-sm focus:outline-none ${theme === "light" ? "bg-white text-neutral-950" : "bg-neutral-900 text-white"}`}
               />
-              <span className={`text-xs mt-1 block ${theme === "light" ? "text-neutral-500" : "text-neutral-500"}`}>
+              <span className={`text-xs mt-1 block ${theme === "light" ? "text-neutral-500" : "text-neutral-550"}`}>
                 {language === "pt" ? "quantidade de vezes que cada versão toca por rodada (máximo 20)." : "each track version is repeated this many times before shuffling (maximum 20)."}
               </span>
             </div>
@@ -822,9 +822,9 @@ export default function PlaylistGenerator() {
             <div>
               <label className={`block text-xs font-bold uppercase mb-2 flex items-center gap-1 ${theme === "light" ? "text-neutral-700" : "text-neutral-300"}`}>
                 {language === "pt" ? "tabela principal (gatilho)" : "primary track pool (end trigger)"}
-                <span className={`group relative cursor-pointer text-neutral-400 ${theme === "light" ? "hover:text-black" : "hover:text-white"}`}>
+                <span className={`group relative cursor-pointer text-neutral-500 ${theme === "light" ? "hover:text-black" : "hover:text-white"}`}>
                   <HelpCircle className="w-4 h-4 inline" />
-                  <span className={`hidden group-hover:block absolute bottom-6 right-0 border p-3 rounded text-xs w-64 shadow-xl leading-normal z-50 normal-case ${theme === "light" ? "bg-white border-neutral-200 text-neutral-800 shadow-2xl" : "bg-neutral-950 border-neutral-800 text-neutral-300 shadow-xl"}`}>
+                  <span className={`hidden group-hover:block absolute bottom-6 right-0 border-2 border-foreground p-3 rounded-none text-xs w-64 shadow-[3px_3px_0px_0px_var(--foreground)] leading-normal z-50 normal-case ${theme === "light" ? "bg-white text-neutral-800" : "bg-neutral-950 text-neutral-350"}`}>
                     {language === "pt"
                       ? "A playlist encerra a geração assim que as músicas deste grupo selecionado acabarem."
                       : "The playlist generation terminates immediately when this chosen track pool runs out of tracks."}
@@ -834,7 +834,7 @@ export default function PlaylistGenerator() {
               <select
                 value={primaryTable}
                 onChange={(e) => setPrimaryTable(parseInt(e.target.value))}
-                className={`w-full border rounded px-3 py-2.5 text-sm focus:outline-none cursor-pointer font-serif ${theme === "light" ? "bg-white border-neutral-350 text-neutral-950 focus:border-black" : "bg-neutral-900 border-neutral-850 text-white focus:border-white"}`}
+                className={`w-full border-2 border-foreground rounded-none px-3 py-2.5 text-sm focus:outline-none cursor-pointer font-serif ${theme === "light" ? "bg-white text-neutral-950 focus:border-black" : "bg-neutral-950 text-white focus:border-white"}`}
               >
                 <option value={1}>{language === "pt" ? "tabela 1: música principal" : "focus track"}</option>
                 <option value={2}>{language === "pt" ? "tabela 2: hits de apoio" : "supporting hits"}</option>
@@ -843,7 +843,7 @@ export default function PlaylistGenerator() {
               </select>
             </div>
 
-            <div className={`border-t pt-5 space-y-4 font-mono ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}>
+            <div className="border-t-2 border-foreground pt-5 space-y-4 font-mono">
               <span className={`block text-xs font-bold uppercase ${theme === "light" ? "text-neutral-700" : "text-neutral-300"}`}>
                 {language === "pt" ? "quantidades por ciclo (máximo 2)" : "cycle quantities (per round - max 2)"}
               </span>
@@ -857,7 +857,7 @@ export default function PlaylistGenerator() {
                     max={2}
                     value={focusQty}
                     onChange={(e) => setFocusQty(Math.max(1, Math.min(2, parseInt(e.target.value) || 1)))}
-                    className={`w-full border rounded p-2 text-sm text-center ${theme === "light" ? "bg-white border-neutral-300 text-neutral-950" : "bg-neutral-900 border-neutral-850 text-white"}`}
+                    className={`w-full border-2 border-foreground rounded-none p-2 text-sm text-center ${theme === "light" ? "bg-white text-neutral-950" : "bg-neutral-900 text-white"}`}
                   />
                 </div>
                 <div>
@@ -868,7 +868,7 @@ export default function PlaylistGenerator() {
                     max={2}
                     value={hitsQty}
                     onChange={(e) => setHitsQty(Math.max(0, Math.min(2, parseInt(e.target.value) || 0)))}
-                    className={`w-full border rounded p-2 text-sm text-center ${theme === "light" ? "bg-white border-neutral-300 text-neutral-950" : "bg-neutral-900 border-neutral-850 text-white"}`}
+                    className={`w-full border-2 border-foreground rounded-none p-2 text-sm text-center ${theme === "light" ? "bg-white text-neutral-950" : "bg-neutral-900 text-white"}`}
                   />
                 </div>
                 <div>
@@ -879,7 +879,7 @@ export default function PlaylistGenerator() {
                     max={2}
                     value={fillersQty}
                     onChange={(e) => setFillersQty(Math.max(1, Math.min(2, parseInt(e.target.value) || 1)))}
-                    className={`w-full border rounded p-2 text-sm text-center ${theme === "light" ? "bg-white border-neutral-300 text-neutral-950" : "bg-neutral-900 border-neutral-850 text-white"}`}
+                    className={`w-full border-2 border-foreground rounded-none p-2 text-sm text-center ${theme === "light" ? "bg-white text-neutral-950" : "bg-neutral-900 text-white"}`}
                   />
                 </div>
                 <div>
@@ -890,7 +890,7 @@ export default function PlaylistGenerator() {
                     max={2}
                     value={shortsQty}
                     onChange={(e) => setShortsQty(Math.max(0, Math.min(2, parseInt(e.target.value) || 0)))}
-                    className={`w-full border rounded p-2 text-sm text-center ${theme === "light" ? "bg-white border-neutral-300 text-neutral-950" : "bg-neutral-900 border-neutral-850 text-white"}`}
+                    className={`w-full border-2 border-foreground rounded-none p-2 text-sm text-center ${theme === "light" ? "bg-white text-neutral-950" : "bg-neutral-900 text-white"}`}
                   />
                 </div>
               </div>
@@ -899,7 +899,7 @@ export default function PlaylistGenerator() {
 
           <button
             onClick={handleGenerateLocal}
-            className={`w-full py-3.5 font-extrabold text-sm tracking-wider uppercase border transition-colors duration-200 cursor-pointer ${theme === "light" ? "bg-black hover:bg-neutral-800 text-white border-black" : "bg-white hover:bg-neutral-200 text-black border-white"}`}
+            className="w-full py-3.5 neobrutal-btn font-extrabold text-sm tracking-wider uppercase cursor-pointer"
           >
             {language === "pt" ? "gerar sequência" : "generate sequence"}
           </button>
@@ -908,14 +908,14 @@ export default function PlaylistGenerator() {
 
       {/* Output Feedback Message */}
       {(errorMsg || successMsg) && (
-        <div className={`p-4 border rounded text-sm font-mono ${errorMsg ? "bg-red-950/20 border-red-900/60 text-red-250" : (theme === "light" ? "bg-neutral-100 border-neutral-300 text-neutral-900" : "bg-wine-deep border-panel-border text-white")}`}>
+        <div className={`p-4 border-2 border-foreground rounded-none text-sm font-mono shadow-[2px_2px_0px_0px_var(--foreground)] ${errorMsg ? "bg-red-950/20 text-red-400" : (theme === "light" ? "bg-neutral-100 text-neutral-900" : "bg-wine-deep text-white")}`}>
           {errorMsg ? `${language === "pt" ? "erro: " : "error: "}${errorMsg}` : successMsg}
         </div>
       )}
 
       {/* Playlist Actions & Tracks Preview */}
       {generatedTracksList.length > 0 && (
-        <div className={`border-t pt-6 space-y-6 ${theme === "light" ? "border-neutral-200" : "border-panel-border"}`}>
+        <div className="border-t-2 border-foreground pt-6 space-y-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
               <h3 className={`text-lg font-bold uppercase tracking-wider ${theme === "light" ? "text-neutral-950" : "text-white"}`}>
@@ -931,21 +931,21 @@ export default function PlaylistGenerator() {
             <div className="flex items-center gap-3 w-full md:w-auto">
               <button
                 onClick={handleCopyToClipboard}
-                className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 border text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer ${theme === "light" ? "bg-black hover:bg-neutral-800 text-white border-black" : "bg-white hover:bg-neutral-200 text-black border-white"}`}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 neobrutal-btn text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
               >
                 <Copy className="w-3.5 h-3.5" /> {language === "pt" ? "copiar links das faixas" : "copy track links"}
               </button>
             </div>
           </div>
 
-          <div className={`text-xs font-serif leading-relaxed mt-2 p-4 border rounded ${theme === "light" ? "bg-neutral-50 border-neutral-250 text-neutral-600" : "bg-wine-deep/40 border-panel-border text-neutral-400"}`}>
+          <div className="text-xs font-serif leading-relaxed mt-2 p-4 border-2 border-foreground rounded-none bg-wine-deep/40 text-neutral-450 shadow-[2px_2px_0px_0px_var(--foreground)]">
             💡 {language === "pt"
               ? "copie os links das músicas e cole-os no campo de busca do spotify para montar a sua playlist rapidamente, ou adicione-os na fila na sequência listada."
               : "copy the track links and paste them into spotify's search bar to build your playlist, or manually queue them in this exact order."}
           </div>
 
           {/* Tracks preview list */}
-          <div className={`border rounded max-h-80 overflow-y-auto font-mono text-[11px] p-3 divide-y ${theme === "light" ? "bg-white border-neutral-200 text-neutral-800 divide-neutral-100" : "bg-neutral-950 border-neutral-800 text-neutral-300 divide-neutral-900/80"}`}>
+          <div className={`border-2 border-foreground rounded-none max-h-80 overflow-y-auto font-mono text-[11px] p-3 divide-y-2 divide-foreground shadow-[2px_2px_0px_0px_var(--foreground)] ${theme === "light" ? "bg-white text-neutral-800" : "bg-neutral-950 text-neutral-350"}`}>
             {generatedTracksList.map((uri, idx) => {
               const id = uri.split(":track:")[1];
               return (

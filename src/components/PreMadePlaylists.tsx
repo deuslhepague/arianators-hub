@@ -66,23 +66,16 @@ export default function PreMadePlaylists() {
     : "bg-neutral-900 border-neutral-800 hover:border-white hover:bg-neutral-800 text-white";
 
   return (
-    <section className="glass-panel p-6 lg:p-10 animate-fade-in" id="premade">
-      <div className={`border-b pb-6 mb-8 ${border}`}>
+    <section className="neobrutal-card p-6 lg:p-10 animate-fade-in" id="premade">
+      <div className="border-b-2 border-foreground pb-6 mb-8">
         <div className="flex items-center gap-4">
-          <div className={`p-3 rounded border ${iconBox}`}>
+          <div className={`p-3 rounded-none border-2 border-foreground shadow-[2px_2px_0px_0px_var(--foreground)] ${iconBox}`}>
             <Heart className="w-8 h-8" />
           </div>
           <div>
             <h2 className={`text-2xl md:text-3xl font-bold tracking-wider uppercase ${textMain}`}>
               {language === "pt" ? "playlists da equipe do site" : "site team playlists"}
             </h2>
-            {/*
-            <p className={`text-sm mt-1.5 ${textMuted}`}>
-              {language === "pt"
-                ? "playlists de streaming criadas pela equipe do site"
-                : "streaming playlists created by the site team"}
-            </p>
-            */}
           </div>
         </div>
       </div>
@@ -92,7 +85,7 @@ export default function PreMadePlaylists() {
         {PREMADE_PLAYLISTS.map((playlist) => (
           <div
             key={playlist.id}
-            className={`flex flex-col justify-between p-6 rounded border transition-all duration-200 group ${cardBg}`}
+            className="flex flex-col justify-between p-6 neobrutal-card transition-all duration-200 group"
           >
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -108,14 +101,9 @@ export default function PreMadePlaylists() {
               <h3 className={`text-lg md:text-xl font-bold group-hover:underline mb-3 ${textMain}`}>
                 {playlist.title}
               </h3>
-              {/*
-              <p className={`text-sm leading-relaxed mb-6 ${textSub}`}>
-                {language === "pt" ? playlist.descriptionPt : playlist.descriptionEn}
-              </p>
-              */}
             </div>
 
-            <div className={`border-t pt-4 flex items-center justify-between gap-4 ${border}`}>
+            <div className="border-t-2 border-foreground pt-4 flex items-center justify-between gap-4">
               <span className={`text-xs uppercase tracking-wider ${textSub}`}>
                 {playlist.tracksCount} {language === "pt" ? "faixas" : "tracks"}
               </span>
@@ -124,7 +112,7 @@ export default function PreMadePlaylists() {
                 href={playlist.spotifyUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`flex items-center gap-2 px-4 py-2 border text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${btnClass}`}
+                className="flex items-center gap-2 px-4 py-2 neobrutal-btn text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
               >
                 {language === "pt" ? "abrir spotify" : "launch spotify"}
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -135,7 +123,7 @@ export default function PreMadePlaylists() {
       </div>
 
       {/* Crucial Playlist Rule Disclaimer */}
-      <div className={`p-5 border flex items-start gap-4 text-sm leading-relaxed rounded ${deepBg} ${textSub}`}>
+      <div className="p-5 border-2 border-foreground flex items-start gap-4 text-sm leading-relaxed bg-wine-deep/40 text-neutral-450 shadow-[2px_2px_0px_0px_var(--foreground)]">
         <Info className={`w-5 h-5 flex-shrink-0 mt-0.5 ${textMuted}`} />
         <div>
           <strong className={`font-bold block mb-1 uppercase tracking-wider ${textMain}`}>

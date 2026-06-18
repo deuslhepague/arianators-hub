@@ -44,8 +44,8 @@ export default function StreamingGuide() {
   const iconBox = lt ? "text-black" : "text-white";
 
   return (
-    <section className="glass-panel p-6 lg:p-10 animate-fade-in" id="guide">
-      <div className={`flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 border-b ${border} pb-6`}>
+    <section className="neobrutal-card p-6 lg:p-10 animate-fade-in" id="guide">
+      <div className={`flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8 border-b-2 border-foreground pb-6`}>
         <div>
           <h2 className={`text-xl md:text-2xl font-bold tracking-wider uppercase flex items-center gap-3 ${textMain}`}>
             <BookOpen className={`w-6 h-6 ${iconBox}`} />
@@ -60,7 +60,7 @@ export default function StreamingGuide() {
         </div>
 
         {/* Tab Controls */}
-        <div className={`flex flex-wrap gap-2 p-1.5 border rounded font-mono ${tabBg}`}>
+        <div className={`flex flex-wrap gap-2 p-1.5 border-2 border-foreground font-mono ${lt ? "bg-neutral-100" : "bg-neutral-950"}`}>
           {[
             { id: "basics", label: language === "pt" ? "o básico" : "the basics" },
             { id: "rules", label: language === "pt" ? "regras" : "dos & don'ts" },
@@ -70,9 +70,9 @@ export default function StreamingGuide() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded transition-all duration-200 cursor-pointer ${activeTab === tab.id
-                ? `${tabActive} font-extrabold shadow`
-                : tabInactive
+              className={`px-4 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${activeTab === tab.id
+                ? "bg-foreground text-background border-2 border-foreground shadow-[2px_2px_0px_0px_var(--foreground)] font-extrabold"
+                : `border-2 border-transparent ${lt ? "text-neutral-600 hover:text-black hover:border-foreground" : "text-neutral-400 hover:text-white hover:border-foreground"}`
                 }`}
             >
               {tab.label}
@@ -87,7 +87,7 @@ export default function StreamingGuide() {
         {activeTab === "basics" && (
           <div className="space-y-6 animate-slide-up">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className={`p-6 border rounded ${cardBg}`}>
+              <div className="neobrutal-card p-6">
                 <h3 className={`text-base font-bold uppercase tracking-wider mb-3 flex items-center gap-2 ${textMain}`}>
                   <Info className="w-5 h-5 text-rose" />
                   {language === "pt" ? "o que é streaming no spotify?" : "what is spotify streaming?"}
@@ -97,7 +97,7 @@ export default function StreamingGuide() {
                     ? "o spotify é o principal motor para registrar recordes e charts globais (billboard hot 100, global top 50, etc.). no entanto, a repetição simples não funciona: o sistema possui filtros que bloqueiam comportamentos parecidos com robôs."
                     : "spotify is the main engine driving records on the charts (billboard hot 100, billboard 200, global top 50, etc.). however, simple repetition doesn't work. the system filters bot-like behavior."}
                 </p>
-                <div className={`mt-4 p-4 border rounded ${deepBg}`}>
+                <div className="mt-4 p-4 border-2 border-foreground bg-wine-deep/40 dark:bg-wine-deep/40 shadow-[2px_2px_0px_0px_var(--foreground)]">
                   <p className={`text-xs leading-relaxed font-mono ${textMain}`}>
                     <strong className={`uppercase ${textMain}`}>
                       {language === "pt" ? "a regra dos 20 plays:" : "the 20-plays rule:"}
@@ -109,7 +109,7 @@ export default function StreamingGuide() {
                 </div>
               </div>
 
-              <div className={`p-6 border rounded ${cardBg}`}>
+              <div className="neobrutal-card p-6">
                 <h3 className={`text-base font-bold uppercase tracking-wider mb-3 flex items-center gap-2 ${textMain}`}>
                   <Clock className={`w-5 h-5 ${iconBox}`} />
                   {language === "pt" ? "reinício diário" : "daily resets"}
@@ -120,11 +120,11 @@ export default function StreamingGuide() {
                     : `the daily counting period for spotify global ends and resets at 12am GMT${localResetTime ? ` (${localResetTime} your local time)` : ""}. make sure to track your local time to reset your daily play thermometer counts!`}
                 </p>
                 <div className="mt-6 grid grid-cols-2 gap-4 text-center text-xs font-mono">
-                  <div className={`p-3 border rounded ${deepBg}`}>
+                  <div className="p-3 border-2 border-foreground bg-wine-deep/40 dark:bg-wine-deep/40 shadow-[2px_2px_0px_0px_var(--foreground)]">
                     <span className={`block mb-1 ${textMuted}`}>{language === "pt" ? "reinício gmt" : "gmt reset"}</span>
                     <span className={`font-bold text-sm ${textMain}`}>00:00 (12am GMT)</span>
                   </div>
-                  <div className={`p-3 border rounded ${deepBg}`}>
+                  <div className="p-3 border-2 border-foreground bg-wine-deep/40 dark:bg-wine-deep/40 shadow-[2px_2px_0px_0px_var(--foreground)]">
                     <span className={`block mb-1 ${textMuted}`}>{language === "pt" ? "reinício local" : "local reset time"}</span>
                     <span className={`font-bold text-sm ${textMain}`}>
                       {localResetTime || "12am GMT"}
@@ -134,7 +134,7 @@ export default function StreamingGuide() {
               </div>
             </div>
 
-            <div className={`p-6 border rounded ${cardBg}`}>
+            <div className="neobrutal-card p-6">
               <h3 className={`text-base font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${textMain}`}>
                 <Monitor className={`w-5 h-5 ${iconBox}`} />
                 {language === "pt" ? "spotify gratuito vs spotify premium" : "spotify free vs spotify premium"}
@@ -319,7 +319,7 @@ export default function StreamingGuide() {
         {/* Tab 3: Multi-Account Strategy */}
         {activeTab === "multi" && (
           <div className="space-y-6 animate-slide-up text-sm">
-            <div className={`p-5 border rounded flex flex-col md:flex-row md:items-center gap-4 ${deepBg}`}>
+            <div className="neobrutal-card flex flex-col md:flex-row md:items-center gap-4 p-5">
               <Layers className={`w-8 h-8 flex-shrink-0 ${iconBox}`} />
               <div>
                 <h4 className={`text-base font-bold uppercase tracking-wider ${textMain}`}>
@@ -335,7 +335,7 @@ export default function StreamingGuide() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-serif">
               {/* Browser Profiles */}
-              <div className={`p-6 border rounded flex flex-col justify-between ${cardBg}`}>
+              <div className="neobrutal-card p-6 flex flex-col justify-between">
                 <div>
                   <h4 className={`font-bold flex items-center gap-2 mb-3 uppercase tracking-wider text-xs font-mono ${textMain}`}>
                     <Globe className={`w-4 h-4 ${iconBox}`} />
@@ -366,13 +366,13 @@ export default function StreamingGuide() {
                     )}
                   </ol>
                 </div>
-                <div className={`mt-6 p-3 border rounded text-xs leading-normal font-mono ${deepBg} ${textSub}`}>
+                <div className="mt-6 p-3 border-2 border-foreground rounded-none text-xs leading-normal font-mono bg-wine-deep/40 text-neutral-450 shadow-[2px_2px_0px_0px_var(--foreground)]">
                   ⚡ {language === "pt" ? "nota: você precisa de uma conta separada do spotify para cada aba/perfil." : "note: you need a separate spotify account (free or premium) for each browser profile."}
                 </div>
               </div>
 
               {/* Firefox Multi-Account Containers */}
-              <div className={`p-6 border rounded flex flex-col justify-between ${cardBg}`}>
+              <div className="neobrutal-card p-6 flex flex-col justify-between">
                 <div>
                   <h4 className={`font-bold flex items-center gap-2 mb-3 uppercase tracking-wider text-xs font-mono ${textMain}`}>
                     <Compass className={`w-4 h-4 ${iconBox}`} />
@@ -402,13 +402,13 @@ export default function StreamingGuide() {
                     )}
                   </ol>
                 </div>
-                <div className={`mt-6 p-3 border rounded text-xs leading-normal font-mono ${deepBg} ${textSub}`}>
+                <div className="mt-6 p-3 border-2 border-foreground rounded-none text-xs leading-normal font-mono bg-wine-deep/40 text-neutral-450 shadow-[2px_2px_0px_0px_var(--foreground)]">
                   🦊 {language === "pt" ? "dica: este método economiza muita memória RAM rodando tudo numa janela só!" : "tip: this is the most memory-efficient method since it runs inside a single window!"}
                 </div>
               </div>
             </div>
 
-            <div className={`p-4 border text-xs md:text-sm flex gap-3 leading-relaxed rounded font-serif ${deepBg} ${textSub}`}>
+            <div className="border-2 border-foreground text-xs md:text-sm flex gap-3 leading-relaxed bg-wine-deep/40 p-4 shadow-[2px_2px_0px_0px_var(--foreground)] text-neutral-450">
               <Volume2 className={`w-5 h-5 flex-shrink-0 mt-0.5 ${iconBox}`} />
               <div>
                 <strong className={`uppercase tracking-wider block mb-1 font-mono ${textMain}`}>
@@ -431,7 +431,7 @@ export default function StreamingGuide() {
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 font-mono text-xs">
-              <div className={`p-6 border rounded ${cardBg}`}>
+              <div className="neobrutal-card p-6">
                 <h4 className={`font-bold mb-3 uppercase tracking-wider ${textMain}`}>
                   {language === "pt" ? "foco global" : "global focus"}
                 </h4>
@@ -459,7 +459,7 @@ export default function StreamingGuide() {
                 </ul>
               </div>
 
-              <div className={`p-6 border rounded ${cardBg}`}>
+              <div className="neobrutal-card p-6">
                 <h4 className={`font-bold mb-3 uppercase tracking-wider ${textMain}`}>
                   {language === "pt" ? "foco nacional (seu país)" : "national focus (your country)"}
                 </h4>
@@ -488,7 +488,7 @@ export default function StreamingGuide() {
               </div>
             </div>
 
-            <div className={`p-4 border text-center rounded font-serif ${deepBg}`}>
+            <div className="border-2 border-foreground text-center bg-wine-deep/40 p-4 shadow-[2px_2px_0px_0px_var(--foreground)]">
               <p className={`text-sm italic leading-relaxed ${textSub}`}>
                 {language === "pt"
                   ? 'cada stream importa.'

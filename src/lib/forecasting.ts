@@ -43,26 +43,44 @@ export function calculateForecast(
   // 1. Sort history chronologically
   const sortedDates = Object.keys(streamsMap).sort();
   
-  // 2. Discard the first day (oldest entry) to ignore initial upload spike
-  if (sortedDates.length > 1) {
-    sortedDates.shift();
-  }
-
-  // Extract daily gains
+  // Extract and clean daily values by reconstructing them from cumulative total streams
   const dailyValues: { date: string; daily: number; dayOfWeek: number }[] = [];
-  sortedDates.forEach(date => {
-    const entry = streamsMap[date];
-    const daily = entry?.daily ?? 0;
-    // Discard negative, zero, or abnormally high gains (e.g., > 100 million in a day)
-    if (daily > 0 && daily < 100_000_000) {
-      const parsedDate = new Date(date + "T00:00:00");
-      dailyValues.push({
-        date,
-        daily,
-        dayOfWeek: parsedDate.getDay() // 0 = Sunday, 1 = Monday, etc.
-      });
+  if (sortedDates.length > 1) {
+    let lastValidDateStr = sortedDates[0];
+    let lastValidTotal = streamsMap[lastValidDateStr]?.total ?? 0;
+    
+    for (let i = 1; i < sortedDates.length; i++) {
+      const currDateStr = sortedDates[i];
+      const currTotal = streamsMap[currDateStr]?.total ?? 0;
+      
+      if (currTotal > lastValidTotal) {
+        const diffStreams = currTotal - lastValidTotal;
+        const prevDate = new Date(lastValidDateStr + "T00:00:00");
+        const currDate = new Date(currDateStr + "T00:00:00");
+        const diffTime = currDate.getTime() - prevDate.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays > 0) {
+          const avgDaily = diffStreams / diffDays;
+          if (avgDaily > 0 && avgDaily < 100_000_000) {
+            // Fill in the timeline to maintain correct seasonality and density
+            for (let d = 1; d <= diffDays; d++) {
+              const targetDate = new Date(prevDate.getTime() + d * 24 * 60 * 60 * 1000);
+              const targetDateStr = targetDate.toISOString().split('T')[0];
+              dailyValues.push({
+                date: targetDateStr,
+                daily: avgDaily,
+                dayOfWeek: targetDate.getDay()
+              });
+            }
+          }
+        }
+        
+        lastValidDateStr = currDateStr;
+        lastValidTotal = currTotal;
+      }
     }
-  });
+  }
 
   const n = dailyValues.length;
 
@@ -216,15 +234,20 @@ export function calculateForecast(
       seasonal[seasonalIndex] = gamma * (obs - level) + (1 - gamma) * prevSeasonal;
     }
 
-    // Project forward
+    // Project forward with Damped Trend to prevent inflation
     let accumulatedStreams = 0;
     let days = 0;
+    const phi = 0.85; // Strong damping factor to prevent runaway projections from peaks/tours
+    let dampedTrend = trend;
+    let currentLevel = level;
     
     // Safety cap at 1825 days (5 years)
     while (accumulatedStreams < remaining && days < 1825) {
       days++;
       const seasonalIndex = (n + days - 1) % period;
-      const projectedValue = Math.max(1, level + days * trend + seasonal[seasonalIndex]);
+      dampedTrend = dampedTrend * phi;
+      currentLevel = currentLevel + dampedTrend;
+      const projectedValue = Math.max(1, currentLevel + seasonal[seasonalIndex]);
       accumulatedStreams += projectedValue;
     }
 
