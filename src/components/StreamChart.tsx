@@ -13,7 +13,7 @@ interface StreamChartProps {
   language: string;
 }
 
-type TimeRange = "7d" | "30d" | "all";
+type TimeRange = "7d" | "30d" | "3m" | "6m" | "1y" | "all";
 
 export default function StreamChart({ streams, theme, language }: StreamChartProps) {
   const [range, setRange] = useState<TimeRange>("7d");
@@ -54,6 +54,9 @@ export default function StreamChart({ streams, theme, language }: StreamChartPro
   const filteredPoints = useMemo(() => {
     if (range === "7d") return allPoints.slice(-7);
     if (range === "30d") return allPoints.slice(-30);
+    if (range === "3m") return allPoints.slice(-90);
+    if (range === "6m") return allPoints.slice(-180);
+    if (range === "1y") return allPoints.slice(-365);
     return allPoints;
   }, [allPoints, range]);
 
@@ -202,22 +205,29 @@ export default function StreamChart({ streams, theme, language }: StreamChartPro
           <span className={isLight ? "text-neutral-500" : "text-mauve"}>
             {language === "pt" ? "período:" : "zoom:"}
           </span>
-          {(["7d", "30d", "all"] as TimeRange[]).map((r) => (
-            <button
-              key={r}
-              onClick={() => {
-                setRange(r);
-                setHoveredIndex(null);
-              }}
-              className={`px-3 py-1.5 md:px-2 md:py-0.5 rounded font-mono font-bold uppercase transition-all cursor-pointer text-[11px] md:text-xs min-h-[28px] md:min-h-0 ${
-                range === r
-                  ? (isLight ? "bg-black text-white" : "bg-rose text-floral-bg")
-                  : (isLight ? "text-neutral-500 hover:text-black" : "text-mauve hover:text-white")
-              }`}
-            >
-              {r === "all" ? (language === "pt" ? "tudo" : "all") : r}
-            </button>
-          ))}
+          {(["7d", "30d", "3m", "6m", "1y", "all"] as TimeRange[]).map((r) => {
+            const getLabel = () => {
+              if (r === "all") return language === "pt" ? "tudo" : "all";
+              if (r === "1y") return language === "pt" ? "1a" : "1y";
+              return r.toUpperCase();
+            };
+            return (
+              <button
+                key={r}
+                onClick={() => {
+                  setRange(r);
+                  setHoveredIndex(null);
+                }}
+                className={`px-3 py-1.5 md:px-2 md:py-0.5 rounded font-mono font-bold uppercase transition-all cursor-pointer text-[11px] md:text-xs min-h-[28px] md:min-h-0 ${
+                  range === r
+                    ? (isLight ? "bg-black text-white" : "bg-rose text-floral-bg")
+                    : (isLight ? "text-neutral-500 hover:text-black" : "text-mauve hover:text-white")
+                }`}
+              >
+                {getLabel()}
+              </button>
+            );
+          })}
         </div>
         <div className="flex items-center gap-3 font-mono text-[9px] md:text-[10px]">
           <span className="flex items-center gap-1">

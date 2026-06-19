@@ -2490,7 +2490,7 @@ export default function StreamsPage() {
                         key={track.id}
                         onClick={() => {
                           setSelectedAlbum(null);
-                          setSelectedTrack(track);
+                          handleSelectTrack(track);
                         }}
                         className={`grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-2.5 items-center p-2 border-b-2 border-neutral-100 dark:border-neutral-900 last:border-b-0 transition-all cursor-pointer text-foreground hover:bg-neutral-100 dark:hover:bg-neutral-900/60`}
                       >

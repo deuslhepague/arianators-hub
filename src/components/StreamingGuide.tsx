@@ -492,7 +492,7 @@ export default function StreamingGuide() {
               <p className={`text-sm italic leading-relaxed ${textSub}`}>
                 {language === "pt"
                   ? 'cada stream importa.'
-                  : 'every single stream counts.'}
+                  : 'every stream counts.'}
               </p>
             </div>
           </div>
