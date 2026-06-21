@@ -6,6 +6,8 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useTheme } from "@/context/ThemeContext";
 import { dbOperations } from "@/lib/firebase";
 import { addStreamHistoryEntry, getTodayDateStr } from "@/lib/streamHistory";
+import { calculateForecast } from "@/lib/forecasting";
+import { getMilestoneForStreams } from "@/lib/milestones";
 import {
   Settings,
   RefreshCw,
@@ -18,7 +20,8 @@ import {
   X,
   ArrowRightLeft,
   ShieldAlert,
-  Edit3
+  Edit3,
+  Calendar
 } from "lucide-react";
 
 interface TrackStat {
@@ -51,16 +54,6 @@ interface AlbumStat {
   streams?: { [date: string]: { total: number; daily: number | null } };
 }
 
-interface PendingValidation {
-  trackId: string;
-  trackName: string;
-  suggestedSongId: string | null;
-  suggestedSongTitle: string | null;
-  coverUrl: string;
-  streams: number;
-  status: "pending_merge" | "pending_new" | "auto_merged";
-}
-
 export default function AdminPanel() {
   const { language } = useLanguage();
   const { theme } = useTheme();
@@ -71,15 +64,19 @@ export default function AdminPanel() {
   const [passcodeInput, setPasscodeInput] = useState("");
   const [authError, setAuthError] = useState(false);
 
-  // Panel tabs: "catalog" | "streams" | "validations" | "simulator" | "deletions"
-  const [adminTab, setAdminTab] = useState<"catalog" | "streams" | "validations" | "simulator" | "deletions">("catalog");
+  // Panel tabs: "catalog" | "streams"
+  const [adminTab, setAdminTab] = useState<"catalog" | "streams">("catalog");
 
   // Catalog / Streams states
   const [tracks, setTracks] = useState<TrackStat[]>([]);
   const [albums, setAlbums] = useState<AlbumStat[]>([]);
-  const [pendingList, setPendingList] = useState<PendingValidation[]>([]);
-  const [deletionsList, setDeletionsList] = useState<any[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  // Daily History Editor states
+  const [editingHistoryTrackId, setEditingHistoryTrackId] = useState<string | null>(null);
+  const [historyEntries, setHistoryEntries] = useState<{ date: string; daily: number; total: number }[]>([]);
+  const [historyBaseTotal, setHistoryBaseTotal] = useState<number>(0);
+  const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
 
   // Active focus track state
   const [activeFocusTrackId, setActiveFocusTrackId] = useState<string>("we-cant-be-friends");
@@ -198,13 +195,6 @@ export default function AdminPanel() {
       setTracks([]);
       setAlbums([]);
     }
-
-    const queue = await dbOperations.getPendingValidations();
-    setPendingList(queue);
-
-    dbOperations.getPendingDeletions().then(reqs => {
-      setDeletionsList(reqs);
-    });
   }, []);
 
   useEffect(() => {
@@ -789,9 +779,8 @@ export default function AdminPanel() {
       if (!res.ok) throw new Error("Failed to update plays");
       const data = await res.json();
       if (data.success) {
-        setTracks(data.tracks);
-        setAlbums(data.albums);
-        showStatus(language === "pt" ? "Plays atualizados com sucesso via Spotify Partner API!" : "Plays updated successfully via Spotify Partner API!");
+        await loadAdminConfig();
+        showStatus(language === "pt" ? "Plays atualizados e salvos com sucesso!" : "Plays updated and saved successfully!");
       } else {
         throw new Error(data.error || "Unknown error");
       }
@@ -834,61 +823,151 @@ export default function AdminPanel() {
     showStatus(language === "pt" ? "atualização diária simulada com sucesso!" : "daily streaming update simulated!");
   };
 
-  const submitSimulatedPlay = async () => {
-    if (!simSelectedTrackId) {
-      showStatus(language === "pt" ? "selecione uma versão de música." : "please select a track version to simulate streams.");
+  // Daily History Editor helper functions
+  const handleStartEditHistory = async (trackId: string) => {
+    setLoadingHistory(true);
+    setEditingHistoryTrackId(trackId);
+    try {
+      const res = await fetch(`/api/catalog/detail?type=track&id=${trackId}`);
+      if (!res.ok) throw new Error("Failed to fetch track details");
+      const result = await res.json();
+      if (result.success && result.data) {
+        const trackDetail = result.data;
+        const streamsMap = trackDetail.streams || {};
+        const sortedDates = Object.keys(streamsMap).sort();
+        const entries = sortedDates.map(date => ({
+          date,
+          daily: Number(streamsMap[date].daily) || 0,
+          total: Number(streamsMap[date].total) || 0
+        }));
+        
+        setHistoryEntries(entries);
+        const firstEntry = entries[0];
+        const initialBaseTotal = firstEntry ? (firstEntry.total - firstEntry.daily) : (trackDetail.totalStreams || 0);
+        setHistoryBaseTotal(initialBaseTotal);
+      } else {
+        throw new Error(result.error || "Failed to fetch data");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showStatus(language === "pt" ? `Erro ao carregar histórico: ${err.message}` : `Error loading history: ${err.message}`);
+      setEditingHistoryTrackId(null);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const handleHistoryEntryChange = (index: number, value: number) => {
+    const updated = [...historyEntries];
+    updated[index].daily = value;
+    
+    let currentTotal = historyBaseTotal;
+    const recalculated = updated.map(entry => {
+      currentTotal += entry.daily;
+      return {
+        ...entry,
+        total: currentTotal
+      };
+    });
+    setHistoryEntries(recalculated);
+  };
+
+  const handleBaseTotalChange = (value: number) => {
+    setHistoryBaseTotal(value);
+    
+    let currentTotal = value;
+    const recalculated = historyEntries.map(entry => {
+      currentTotal += entry.daily;
+      return {
+        ...entry,
+        total: currentTotal
+      };
+    });
+    setHistoryEntries(recalculated);
+  };
+
+  const handleAddHistoryEntry = (date: string, daily: number) => {
+    if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      showStatus(language === "pt" ? "Formato de data inválido! Use YYYY-MM-DD" : "Invalid date format! Use YYYY-MM-DD");
       return;
     }
-
-    try {
-      const mockUserId = `sim_${Math.floor(Math.random() * 90000 + 10000)}`;
-      await dbOperations.trackUserStream(
-        mockUserId,
-        simUserDisplayName || "Simulated Fan",
-        "",
-        simSelectedTrackId,
-        simPlayCount
-      );
-      // Track as global play count too
-      await dbOperations.trackArianaSongStream(
-        simSelectedTrackId,
-        "Simulated track name",
-        "/petal.jpg",
-        simPlayCount
-      );
-      loadAdminConfig();
-      showStatus(language === "pt" ? `adicionados +${simPlayCount} plays simulados!` : `simulated ${simPlayCount} plays successfully!`);
-    } catch (err) {
-      console.error(err);
-      showStatus("failed to submit simulated plays.");
+    if (historyEntries.some(e => e.date === date)) {
+      showStatus(language === "pt" ? "Esta data já existe!" : "This date already exists!");
+      return;
     }
+    const newEntry = { date, daily, total: 0 };
+    const updated = [...historyEntries, newEntry].sort((a, b) => a.date.localeCompare(b.date));
+    
+    let currentTotal = historyBaseTotal;
+    const recalculated = updated.map(entry => {
+      currentTotal += entry.daily;
+      return {
+        ...entry,
+        total: currentTotal
+      };
+    });
+    setHistoryEntries(recalculated);
   };
 
-  const handleClearSimulation = () => {
-    dbOperations.clearSimulatedPlays();
-    loadAdminConfig();
-    showStatus(language === "pt" ? "plays simulados limpos com sucesso!" : "simulated plays successfully cleared!");
+  const handleRemoveHistoryEntry = (index: number) => {
+    const updated = historyEntries.filter((_, i) => i !== index);
+    
+    let currentTotal = historyBaseTotal;
+    const recalculated = updated.map(entry => {
+      currentTotal += entry.daily;
+      return {
+        ...entry,
+        total: currentTotal
+      };
+    });
+    setHistoryEntries(recalculated);
   };
 
-  const handleResolveValidation = (trackId: string, action: "merge" | "create" | "reject", targetSongId?: string) => {
-    dbOperations.resolvePendingValidation(trackId, action, targetSongId);
-    loadAdminConfig();
-    showStatus(language === "pt" ? `resolvido com ação: ${action}` : `resolved with action: ${action}`);
-  };
+  const handleSaveHistory = async () => {
+    if (!editingHistoryTrackId) return;
+    
+    const track = tracks.find(t => t.id === editingHistoryTrackId);
+    if (!track) return;
 
-  const handleResolveDeletion = async (userId: string, action: "approve" | "reject") => {
-    try {
-      await dbOperations.resolveUserDeletion(userId, action);
-      showStatus(
-        action === "approve"
-          ? (language === "pt" ? "dados do usuário removidos com sucesso!" : "user data deleted successfully!")
-          : (language === "pt" ? "solicitação de remoção rejeitada!" : "removal request rejected!")
-      );
-      loadAdminConfig();
-    } catch (err) {
-      console.error(err);
-      showStatus("failed to resolve removal request.");
-    }
+    const newStreams: Record<string, { total: number; daily: number }> = {};
+    historyEntries.forEach(entry => {
+      newStreams[entry.date] = {
+        total: entry.total,
+        daily: entry.daily
+      };
+    });
+
+    const finalTotalStreams = historyEntries.length > 0 ? historyEntries[historyEntries.length - 1].total : historyBaseTotal;
+    const finalDailyGain = historyEntries.length > 0 ? historyEntries[historyEntries.length - 1].daily : 0;
+
+    const milestone = getMilestoneForStreams(finalTotalStreams);
+    const forecast = calculateForecast(
+      newStreams,
+      finalTotalStreams,
+      track.milestoneTarget || milestone.milestoneTarget,
+      finalDailyGain || track.avgDailyGain || 0
+    );
+
+    const updatedTracks = tracks.map(t => {
+      if (t.id === editingHistoryTrackId) {
+        return {
+          ...t,
+          totalStreams: finalTotalStreams,
+          dailyGain: finalDailyGain,
+          daysToGoal: forecast.daysToGoal,
+          dailyPace: forecast.dailyVelocity,
+          streams: newStreams,
+          overwriteStreams: true
+        } as any;
+      }
+      return t;
+    });
+
+    setTracks(updatedTracks);
+    setEditingHistoryTrackId(null);
+    setHistoryEntries([]);
+    
+    await saveAdminConfig(updatedTracks, albums);
   };
 
   // Render Passcode Form if not authenticated
@@ -983,43 +1062,6 @@ export default function AdminPanel() {
             }`}
         >
           {language === "pt" ? "tabela de reproduções" : "album & track counts"}
-        </button>
-        <button
-          onClick={() => setAdminTab("validations")}
-          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-2 transition-all duration-200 cursor-pointer relative ${adminTab === "validations"
-            ? "bg-foreground text-background border-foreground shadow-[2px_2px_0px_0px_var(--foreground)]"
-            : `border-transparent ${lt ? "text-neutral-600 hover:text-black hover:border-foreground" : "text-neutral-450 hover:text-white hover:border-foreground"}`
-            }`}
-        >
-          {language === "pt" ? "validações pendentes" : "pending validations"}
-          {pendingList.length > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 bg-rose text-floral-bg text-[9px] font-extrabold rounded-full w-4 h-4 flex items-center justify-center border border-foreground shadow-[1px_1px_0px_0px_var(--foreground)]">
-              {pendingList.length}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setAdminTab("simulator")}
-          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-2 transition-all duration-200 cursor-pointer ${adminTab === "simulator"
-            ? "bg-foreground text-background border-foreground shadow-[2px_2px_0px_0px_var(--foreground)]"
-            : `border-transparent ${lt ? "text-neutral-600 hover:text-black hover:border-foreground" : "text-neutral-450 hover:text-white hover:border-foreground"}`
-            }`}
-        >
-          {language === "pt" ? "simulador de plays" : "fanbase simulator"}
-        </button>
-        <button
-          onClick={() => setAdminTab("deletions")}
-          className={`px-4 py-2 text-xs font-bold uppercase tracking-wider border-2 transition-all duration-200 cursor-pointer relative ${adminTab === "deletions"
-            ? "bg-foreground text-background border-foreground shadow-[2px_2px_0px_0px_var(--foreground)]"
-            : `border-transparent ${lt ? "text-neutral-600 hover:text-black hover:border-foreground" : "text-neutral-450 hover:text-white hover:border-foreground"}`
-            }`}
-        >
-          {language === "pt" ? "remoções pendentes" : "removal requests"}
-          {deletionsList.length > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 bg-rose text-floral-bg text-[9px] font-extrabold rounded-full w-4 h-4 flex items-center justify-center border border-foreground shadow-[1px_1px_0px_0px_var(--foreground)]">
-              {deletionsList.length}
-            </span>
-          )}
         </button>
       </div>
 
@@ -1464,7 +1506,6 @@ export default function AdminPanel() {
                 </div>
               ))}
             </div>
-
           </div>
         </div>
       )}
@@ -1472,403 +1513,322 @@ export default function AdminPanel() {
       {/* TAB 2: STREAMS & UPDATE CONTROLLER */}
       {adminTab === "streams" && (
         <div className="space-y-8">
-          <div className="bg-wine-dark/40 border border-panel-border p-6 rounded flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-bold text-white uppercase tracking-wider">
-                {language === "pt" ? "contadores de reproduções em tempo real" : "real-time streaming counters"}
-              </h3>
-              <p className="text-sm text-neutral-400 mt-1 font-serif">
-                {language === "pt" ? "ajuste streams e metas diárias estimadas para atualizar a projeção." : "manually adjust streaming counts, milestone targets, and edit daily gains."}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2.5">
-              <button
-                onClick={handleUpdatePlaysFromSpotify}
-                disabled={updatingPlays}
-                className="flex items-center justify-center gap-2 px-5 py-3 bg-rose hover:bg-rose-dark text-floral-bg font-extrabold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-rose disabled:opacity-50 font-mono"
-              >
-                <RefreshCw className={`w-4 h-4 ${updatingPlays ? "animate-spin" : ""}`} />
-                {updatingPlays
-                  ? (language === "pt" ? "sincronizando..." : "syncing...")
-                  : (language === "pt" ? "sincronizar spotify" : "update via spotify")}
-              </button>
-              <button
-                onClick={triggerDailySimulation}
-                className="flex items-center justify-center gap-2 px-5 py-3 bg-white hover:bg-neutral-200 text-black font-extrabold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-neutral-800 font-mono"
-              >
-                <RefreshCw className="w-4 h-4" /> {language === "pt" ? "simular dia seguinte" : "simulate daily update"}
-              </button>
-            </div>
-          </div>
+          {editingHistoryTrackId ? (
+            /* HISTORY EDITOR */
+            <div className="neobrutal-card p-6 bg-wine-deep border border-panel-border space-y-6 animate-fade-in font-mono text-xs">
+              <div className="flex justify-between items-center border-b border-panel-border pb-4">
+                <div>
+                  <h3 className="text-base font-bold text-white uppercase tracking-wider">
+                    {language === "pt" ? "editar histórico diário" : "edit daily history"}
+                  </h3>
+                  <p className="text-neutral-450 mt-1 font-serif text-[11px]">
+                    {language === "pt"
+                      ? `ajuste o histórico da faixa: ${tracks.find(t => t.id === editingHistoryTrackId)?.title}`
+                      : `modify stream history entries for track: ${tracks.find(t => t.id === editingHistoryTrackId)?.title}`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setEditingHistoryTrackId(null)}
+                  className="p-1.5 bg-neutral-900 border border-panel-border text-neutral-400 hover:text-white rounded cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
 
-          {/* Tracks streams tables */}
-          <div className="space-y-4">
-            <h4 className="text-base font-bold text-white uppercase tracking-wider border-b border-panel-border pb-2">
-              {language === "pt" ? "lista de faixas" : "tracks list"}
-            </h4>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left text-xs font-mono text-neutral-300">
-                <thead>
-                  <tr className="border-b border-panel-border text-neutral-500 uppercase">
-                    <th className="py-2.5 pr-4">{language === "pt" ? "título da faixa" : "track title"}</th>
-                    <th className="py-2.5">{language === "pt" ? "streams totais" : "total streams"}</th>
-                    <th className="py-2.5">{language === "pt" ? "ganho diário" : "daily gain"}</th>
-                    <th className="py-2.5">{language === "pt" ? "meta (milestone)" : "milestone target"}</th>
-                    <th className="py-2.5">{language === "pt" ? "média diária" : "avg daily"}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-panel-border/40">
-                  {tracks.map((track, index) => {
-                    return (
-                      <tr key={track.id} className="hover:bg-wine-dark/20">
-                        <td className="py-3 pr-4 font-semibold text-white truncate max-w-[150px]">{track.title}</td>
-                        <td className="py-3">
-                          <input
-                            type="number"
-                            value={track.totalStreams || 0}
-                            onChange={(e) => handleTrackChange(index, "totalStreams", parseInt(e.target.value) || 0)}
-                            className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-28 focus:outline-none font-mono"
-                          />
-                        </td>
-                        <td className="py-3">
-                          <input
-                            type="number"
-                            value={track.dailyGain || 0}
-                            onChange={(e) => handleTrackChange(index, "dailyGain", parseInt(e.target.value) || 0)}
-                            className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-24 focus:outline-none font-mono"
-                          />
-                        </td>
-                        <td className="py-3">
-                          <input
-                            type="number"
-                            value={track.milestoneTarget}
-                            onChange={(e) => handleTrackChange(index, "milestoneTarget", parseInt(e.target.value) || 0)}
-                            className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-28 focus:outline-none font-mono"
-                          />
-                        </td>
-                        <td className="py-3">
-                          <input
-                            type="number"
-                            value={track.avgDailyGain}
-                            onChange={(e) => handleTrackChange(index, "avgDailyGain", parseInt(e.target.value) || 0)}
-                            className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-24 focus:outline-none font-mono"
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Albums streams table */}
-          <div className="space-y-4">
-            <h4 className="text-base font-bold text-white uppercase tracking-wider border-b border-panel-border pb-2">
-              {language === "pt" ? "lista de álbuns" : "albums list"}
-            </h4>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left text-xs font-mono text-neutral-300">
-                <thead>
-                  <tr className="border-b border-panel-border text-neutral-500 uppercase">
-                    <th className="py-2.5">{language === "pt" ? "título do álbum" : "album title"}</th>
-                    <th className="py-2.5">{language === "pt" ? "ano" : "year"}</th>
-                    <th className="py-2.5">{language === "pt" ? "streams totais" : "total streams"}</th>
-                    <th className="py-2.5">{language === "pt" ? "ganho diário" : "daily gain"}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-panel-border/40">
-                  {albums.map((album, index) => {
-                    return (
-                      <tr key={album.id} className="hover:bg-wine-dark/20">
-                        <td className="py-3 font-semibold text-white">{album.title}</td>
-                        <td className="py-3">{album.year}</td>
-                        <td className="py-3">
-                          <input
-                            type="number"
-                            value={album.totalStreams || 0}
-                            onChange={(e) => handleAlbumChange(index, "totalStreams", parseInt(e.target.value) || 0)}
-                            className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-32 focus:outline-none font-mono"
-                          />
-                        </td>
-                        <td className="py-3">
-                          <input
-                            type="number"
-                            value={album.dailyGain || 0}
-                            onChange={(e) => handleAlbumChange(index, "dailyGain", parseInt(e.target.value) || 0)}
-                            className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-28 focus:outline-none font-mono"
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: PENDING VALIDATIONS QUEUE */}
-      {adminTab === "validations" && (
-        <div className="space-y-6">
-          <div className="bg-wine-dark/40 border border-panel-border p-6 rounded space-y-4">
-            <h3 className="text-base font-bold text-white uppercase tracking-wider">
-              {language === "pt" ? "validações e conciliação de novos IDs" : "pending track reconciliations"}
-            </h3>
-            <p className="text-sm text-neutral-400 font-serif leading-relaxed">
-              {language === "pt"
-                ? "toda vez que um fã ouve um ID de música da ariana que não está no catálogo principal, ela cai nesta fila. você pode rejeitar o stream, registrá-la como uma versão foco própria, ou agrupá-la (merge) a uma música foco existente para somar os plays."
-                : "when fans stream Ariana tracks whose Spotify IDs aren't directly registered, they register here. Decide if they should be approved as new catalog tracks, rejected, or merged/linked with an existing focus song."}
-            </p>
-          </div>
-
-          {pendingList.length === 0 ? (
-            <div className="text-center py-16 border border-panel-border rounded bg-wine-deep/20 text-neutral-450 font-serif text-sm">
-              {language === "pt" ? "nenhuma música pendente de validação." : "no pending tracks requiring validation."}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {pendingList.map((item) => (
-                <div key={item.trackId} className="p-5 bg-wine-deep border border-panel-border rounded flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 animate-fade-in text-xs font-mono">
-
-                  {/* Track basic info */}
-                  <div className="flex gap-4 items-center">
-                    <img
-                      src={item.coverUrl}
-                      alt={item.trackName}
-                      className="w-12 h-12 rounded object-cover border border-panel-border"
-                    />
-                    <div>
-                      <span className="font-bold text-white text-sm block">{item.trackName}</span>
-                      <span className="text-neutral-450 block mt-0.5">Spotify ID: {item.trackId}</span>
-                      <span className="text-rose font-bold block mt-1">
-                        {language === "pt" ? `streams acumulados: ${item.streams}` : `accumulated streams: ${item.streams}`}
+              {loadingHistory ? (
+                <div className="text-center py-12 text-neutral-400 animate-pulse font-serif">
+                  {language === "pt" ? "carregando histórico completo..." : "loading full history details..."}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Base Total Streams Input */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-wine-dark/20 p-4 border border-panel-border rounded">
+                    <div className="flex-1">
+                      <label className="block text-xs font-bold text-neutral-450 uppercase mb-1">
+                        {language === "pt" ? "base de streams iniciais" : "base initial streams"}
+                      </label>
+                      <span className="text-[10px] text-neutral-500 block leading-relaxed font-serif">
+                        {language === "pt"
+                          ? "plays acumulados antes do primeiro registro de histórico"
+                          : "cumulative plays before the first history entry"}
                       </span>
                     </div>
+                    <input
+                      type="number"
+                      value={historyBaseTotal}
+                      onChange={(e) => handleBaseTotalChange(parseInt(e.target.value) || 0)}
+                      className="bg-neutral-900 border border-neutral-800 rounded px-3 py-2 text-white text-xs w-48 focus:outline-none font-mono"
+                    />
                   </div>
 
-                  {/* Merge recommendation or selectors */}
-                  <div className="flex flex-col sm:flex-row gap-3 items-end sm:items-center w-full lg:w-auto">
-                    {item.status === "auto_merged" ? (
-                      <div className="w-full sm:w-80 text-emerald-450 font-bold flex items-center gap-1.5 bg-emerald-950/20 border border-emerald-900/30 p-2.5 rounded">
-                        <Check className="w-4 h-4 text-emerald-450 shrink-0" />
-                        <span>
-                          {language === "pt"
-                            ? `Mesclado automaticamente com: "${item.suggestedSongTitle}"`
-                            : `Automatically merged with: "${item.suggestedSongTitle}"`}
-                        </span>
-                      </div>
+                  {/* History Entries Table */}
+                  <div className="space-y-3">
+                    <h4 className="font-bold text-white uppercase tracking-wider text-xs border-b border-panel-border pb-1">
+                      {language === "pt" ? "entradas diárias" : "daily entries"}
+                    </h4>
+                    
+                    {historyEntries.length === 0 ? (
+                      <p className="text-neutral-500 font-serif py-4">
+                        {language === "pt" ? "nenhum registro diário encontrado." : "no daily entries found."}
+                      </p>
                     ) : (
-                      <div className="w-full sm:w-60 relative">
-                        <select
-                          value={selectedMergeTarget[item.trackId] !== undefined ? selectedMergeTarget[item.trackId] : (item.suggestedSongId || "")}
-                          onChange={(e) => setSelectedMergeTarget(prev => ({ ...prev, [item.trackId]: e.target.value }))}
-                          className={`w-full bg-neutral-950 border rounded p-2 text-xs text-white focus:outline-none ${item.suggestedSongId ? "border-amber-500/40 focus:border-amber-500" : "border-neutral-900"
-                            }`}
-                        >
-                          <option value="">{language === "pt" ? "-- mesclar com... --" : "-- merge target --"}</option>
-                          {tracks.map(t => (
-                            <option key={t.id} value={t.id}>{t.title}</option>
-                          ))}
-                        </select>
-                        {item.suggestedSongId && (
-                          <span className="absolute -top-2.5 right-2 bg-amber-500 text-neutral-950 text-[8px] font-extrabold px-1 py-0.5 rounded uppercase tracking-wider font-mono scale-90">
-                            {language === "pt" ? "sugestão" : "suggested"}
-                          </span>
-                        )}
+                      <div className="overflow-x-auto border border-panel-border rounded">
+                        <table className="w-full border-collapse text-left text-xs font-mono text-neutral-300">
+                          <thead>
+                            <tr className="bg-wine-deep border-b border-panel-border text-neutral-400 font-bold">
+                              <th className="py-2.5 px-4">{language === "pt" ? "data" : "date"}</th>
+                              <th className="py-2.5 px-4">{language === "pt" ? "ganho diário (daily)" : "daily gain"}</th>
+                              <th className="py-2.5 px-4">{language === "pt" ? "total acumulado (recalculado)" : "cumulative total (recalculated)"}</th>
+                              <th className="py-2.5 px-4 text-right">{language === "pt" ? "ações" : "actions"}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {historyEntries.map((entry, index) => (
+                              <tr key={entry.date} className="border-b border-panel-border hover:bg-wine-dark/10">
+                                <td className="py-2 px-4 text-white font-bold">{entry.date}</td>
+                                <td className="py-2 px-4">
+                                  <input
+                                    type="number"
+                                    value={entry.daily}
+                                    onChange={(e) => handleHistoryEntryChange(index, parseInt(e.target.value) || 0)}
+                                    className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-32 focus:outline-none font-mono"
+                                  />
+                                </td>
+                                <td className="py-2 px-4 text-neutral-400">
+                                  {entry.total.toLocaleString()}
+                                </td>
+                                <td className="py-2 px-4 text-right">
+                                  <button
+                                    onClick={() => handleRemoveHistoryEntry(index)}
+                                    className="p-1 bg-red-950/40 hover:bg-red-950/80 text-red-400 hover:text-red-200 border border-red-900/30 rounded cursor-pointer transition-colors"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     )}
+                  </div>
 
-                    {/* Action buttons */}
-                    <div className="flex gap-2 w-full sm:w-auto justify-end">
-                      {item.status === "auto_merged" ? (
-                        <button
-                          onClick={() => handleResolveValidation(item.trackId, "reject")}
-                          className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded cursor-pointer font-bold"
-                          title={language === "pt" ? "Confirmar e arquivar aviso" : "Confirm and dismiss"}
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                          {language === "pt" ? "Entendido" : "Dismiss"}
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => {
-                              const target = selectedMergeTarget[item.trackId] !== undefined
-                                ? selectedMergeTarget[item.trackId]
-                                : (item.suggestedSongId || "");
-                              if (!target) {
-                                showStatus(language === "pt" ? "selecione a música principal de destino." : "please select a target focus song to merge.");
-                                return;
-                              }
-                              handleResolveValidation(item.trackId, "merge", target);
-                            }}
-                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded cursor-pointer"
-                            title={language === "pt" ? "Mesclar e agrupar plays" : "Merge / Link ID"}
-                          >
-                            <ArrowRightLeft className="w-3.5 h-3.5" />
-                            {language === "pt" ? "Mesclar" : "Merge"}
-                          </button>
-
-                          <button
-                            onClick={() => handleResolveValidation(item.trackId, "create")}
-                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700 rounded cursor-pointer"
-                            title={language === "pt" ? "Adicionar como faixa foco independente" : "Approve as focus track"}
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            {language === "pt" ? "Criar foco" : "Create"}
-                          </button>
-
-                          <button
-                            onClick={() => handleResolveValidation(item.trackId, "reject")}
-                            className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2 bg-red-950/40 hover:bg-red-950/80 text-red-200 border border-red-900 rounded cursor-pointer"
-                            title={language === "pt" ? "Rejeitar e apagar streams" : "Reject Streams"}
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            {language === "pt" ? "Rejeitar" : "Reject"}
-                          </button>
-                        </>
-                      )}
+                  {/* Add New Entry Form */}
+                  <div className="bg-wine-dark/10 p-4 border border-panel-border rounded space-y-3">
+                    <h5 className="font-bold text-white uppercase tracking-wider text-[10px]">
+                      ➕ {language === "pt" ? "adicionar nova data" : "add new date entry"}
+                    </h5>
+                    <div className="flex flex-wrap gap-4 items-end">
+                      <div>
+                        <label className="block text-[10px] text-neutral-455 uppercase mb-1">
+                          {language === "pt" ? "data (AAAA-MM-DD)" : "date (YYYY-MM-DD)"}
+                        </label>
+                        <input
+                          type="text"
+                          id="new-entry-date"
+                          placeholder={getTodayDateStr()}
+                          className="bg-neutral-900 border border-neutral-800 rounded px-3 py-1.5 text-white text-xs w-36 focus:outline-none font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-neutral-455 uppercase mb-1">
+                          {language === "pt" ? "ganho diário" : "daily gain"}
+                        </label>
+                        <input
+                          type="number"
+                          id="new-entry-daily"
+                          placeholder="50000"
+                          className="bg-neutral-900 border border-neutral-800 rounded px-3 py-1.5 text-white text-xs w-36 focus:outline-none font-mono"
+                        />
+                      </div>
+                      <button
+                        onClick={() => {
+                          const dateEl = document.getElementById("new-entry-date") as HTMLInputElement;
+                          const dailyEl = document.getElementById("new-entry-daily") as HTMLInputElement;
+                          if (dateEl && dailyEl) {
+                            const date = dateEl.value.trim() || getTodayDateStr();
+                            const daily = parseInt(dailyEl.value) || 0;
+                            handleAddHistoryEntry(date, daily);
+                            dateEl.value = "";
+                            dailyEl.value = "";
+                          }
+                        }}
+                        className="flex items-center justify-center gap-1.5 px-4 py-2 bg-neutral-850 hover:bg-neutral-700 text-white rounded cursor-pointer font-bold"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        {language === "pt" ? "Adicionar" : "Add Entry"}
+                      </button>
                     </div>
                   </div>
+
+                  {/* Actions buttons */}
+                  <div className="flex justify-end gap-3 pt-4 border-t border-panel-border">
+                    <button
+                      onClick={() => setEditingHistoryTrackId(null)}
+                      className="px-5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700 font-bold uppercase tracking-wider text-xs transition-colors cursor-pointer"
+                    >
+                      {language === "pt" ? "cancelar" : "cancel"}
+                    </button>
+                    <button
+                      onClick={handleSaveHistory}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-rose hover:bg-rose-dark text-floral-bg font-extrabold uppercase tracking-wider text-xs transition-colors cursor-pointer border border-rose"
+                    >
+                      <Save className="w-4 h-4" />
+                      {language === "pt" ? "recalcular e salvar" : "recalculate & save"}
+                    </button>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 4: FANBASE PLAY SIMULATOR */}
-      {adminTab === "simulator" && (
-        <div className="space-y-6">
-          <div className="bg-wine-dark/40 border border-panel-border p-6 rounded space-y-4">
-            <h3 className="text-lg font-bold text-white uppercase tracking-wider">
-              {language === "pt" ? "simulador de ações de streams" : "fanbase stream action simulator"}
-            </h3>
-            <p className="text-sm text-neutral-400 font-serif leading-relaxed">
-              {language === "pt"
-                ? "simule streams de fãs enviando dados para o banco. veja em tempo real as mudanças de posições no ranking e termômetro."
-                : "simulate fanbase plays directly. select a focus track or hit track, enter play count increments, and submit simulated streams to view rank and leaderboard changes."}
-            </p>
-          </div>
-
-          <div className="bg-wine-deep p-6 border border-panel-border rounded space-y-5 text-sm font-mono text-xs">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-xs font-bold text-neutral-450 uppercase mb-1.5">
-                  {language === "pt" ? "nome do fã simulado" : "fan display name"}
-                </label>
-                <input
-                  type="text"
-                  value={simUserDisplayName}
-                  onChange={(e) => setSimUserDisplayName(e.target.value)}
-                  placeholder="Simulated Fan"
-                  className="w-full bg-neutral-900 border border-neutral-800 rounded px-3 py-2 text-sm text-white focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-neutral-450 uppercase mb-1.5">
-                  {language === "pt" ? "faixa de música" : "track to stream"}
-                </label>
-                <select
-                  value={simSelectedTrackId}
-                  onChange={(e) => setSimSelectedTrackId(e.target.value)}
-                  className="w-full bg-neutral-900 border border-neutral-800 rounded px-3 py-2 text-sm text-white focus:outline-none cursor-pointer"
-                >
-                  <option value="">{language === "pt" ? "-- selecionar faixa --" : "-- select track --"}</option>
-                  <option value="20jbSiX29FDX4oQxBXyUEi">we can't be friends (Standard Edition)</option>
-                  <option value="3iy2QuCtCzpWnR6tia39AB">we can't be friends (Deluxe Edition)</option>
-                  <option value="3sLsICFrhFhXZlRFb3f2jB">we can't be friends (Slightly Deluxe Edition)</option>
-                  <option value="5D34wRmbFS29AjtTOP2QJe">yes, and? (Standard Edition)</option>
-                  <option value="0Lmbke3KNVFXtoH2mMSHCw">the boy is mine (Standard Edition)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-neutral-450 uppercase mb-1.5">
-                  {language === "pt" ? "quantidade de plays" : "stream count increment"}
-                </label>
-                <input
-                  type="number"
-                  value={simPlayCount}
-                  onChange={(e) => setSimPlayCount(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-full bg-neutral-900 border border-neutral-800 rounded px-3 py-2 text-sm text-white focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-4 pt-2">
-              <button
-                onClick={submitSimulatedPlay}
-                className="flex-1 py-3 bg-white text-black font-extrabold text-xs uppercase tracking-wider hover:bg-neutral-200 transition-colors cursor-pointer border border-neutral-800"
-              >
-                {language === "pt" ? "lançar plays simulados" : "submit simulated play"}
-              </button>
-
-              <button
-                onClick={handleClearSimulation}
-                className="flex-1 py-3 bg-red-950/40 hover:bg-red-950/80 text-red-200 border border-red-900 font-extrabold text-xs uppercase tracking-wider transition-colors cursor-pointer"
-              >
-                {language === "pt" ? "limpar todos os plays simulados" : "clear all simulated streams"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 5: REMOVAL REQUESTS */}
-      {adminTab === "deletions" && (
-        <div className="space-y-6">
-          <div className="bg-wine-dark/40 border border-panel-border p-6 rounded space-y-4">
-            <h3 className="text-base font-bold text-white uppercase tracking-wider">
-              {language === "pt" ? "solicitações de remoção de dados" : "pending data removal requests"}
-            </h3>
-            <p className="text-sm text-neutral-400 font-serif leading-relaxed">
-              {language === "pt"
-                ? "usuários que solicitaram a exclusão de seus perfis e streams do site. aprovar a remoção excluirá permanentemente todos os registros de streams e pontuações do leaderboard desse usuário."
-                : "users who have requested the deletion of their profiles and streaming logs. approving the deletion will permanently remove all streams and leaderboard data associated with this user."}
-            </p>
-          </div>
-
-          {deletionsList.length === 0 ? (
-            <div className="text-center py-16 border border-panel-border rounded bg-wine-deep/20 text-neutral-450 font-serif text-sm">
-              {language === "pt" ? "nenhuma solicitação de remoção pendente." : "no pending removal requests."}
+              )}
             </div>
           ) : (
-            <div className="space-y-4">
-              {deletionsList.map((item: any) => (
-                <div key={item.userId} className="p-5 bg-wine-deep border border-panel-border rounded flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 animate-fade-in text-xs font-mono">
-                  <div>
-                    <span className="font-bold text-white text-sm block">
-                      {item.displayName}
-                    </span>
-                    <span className="text-neutral-400 block mt-1">stats.fm ID: {item.userId}</span>
-                    <span className="text-neutral-500 block mt-0.5">
-                      {language === "pt" ? `solicitado em: ${new Date(item.requestedAt).toLocaleString()}` : `requested at: ${new Date(item.requestedAt).toLocaleString()}`}
-                    </span>
-                  </div>
-
-                  <div className="flex gap-2 w-full sm:w-auto justify-end">
-                    <button
-                      onClick={() => handleResolveDeletion(item.userId, "approve")}
-                      className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded cursor-pointer font-bold"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      {language === "pt" ? "aprovar exclusão" : "approve removal"}
-                    </button>
-                    <button
-                      onClick={() => handleResolveDeletion(item.userId, "reject")}
-                      className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700 rounded cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      {language === "pt" ? "rejeitar" : "reject"}
-                    </button>
-                  </div>
+            /* MAIN TABLES VIEW */
+            <>
+              <div className="bg-wine-dark/40 border border-panel-border p-6 rounded flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-bold text-white uppercase tracking-wider">
+                    {language === "pt" ? "contadores de reproduções em tempo real" : "real-time streaming counters"}
+                  </h3>
+                  <p className="text-sm text-neutral-400 mt-1 font-serif">
+                    {language === "pt" ? "ajuste streams e metas diárias estimadas para atualizar a projeção." : "manually adjust streaming counts, milestone targets, and edit daily gains."}
+                  </p>
                 </div>
-              ))}
-            </div>
+                <div className="flex flex-wrap gap-2.5">
+                  <button
+                    onClick={handleUpdatePlaysFromSpotify}
+                    disabled={updatingPlays}
+                    className="flex items-center justify-center gap-2 px-5 py-3 bg-rose hover:bg-rose-dark text-floral-bg font-extrabold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-rose disabled:opacity-50 font-mono"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${updatingPlays ? "animate-spin" : ""}`} />
+                    {updatingPlays
+                      ? (language === "pt" ? "sincronizando..." : "syncing...")
+                      : (language === "pt" ? "sincronizar spotify" : "update via spotify")}
+                  </button>
+                  <button
+                    onClick={triggerDailySimulation}
+                    className="flex items-center justify-center gap-2 px-5 py-3 bg-white hover:bg-neutral-200 text-black font-extrabold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-neutral-800 font-mono"
+                  >
+                    <RefreshCw className="w-4 h-4" /> {language === "pt" ? "simular dia seguinte" : "simulate daily update"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Tracks streams tables */}
+              <div className="space-y-4">
+                <h4 className="text-base font-bold text-white uppercase tracking-wider border-b border-panel-border pb-2">
+                  {language === "pt" ? "lista de faixas" : "tracks list"}
+                </h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-xs font-mono text-neutral-300">
+                    <thead>
+                      <tr className="border-b border-panel-border text-neutral-500 uppercase">
+                        <th className="py-2.5 pr-4">{language === "pt" ? "título da faixa" : "track title"}</th>
+                        <th className="py-2.5">{language === "pt" ? "streams totais" : "total streams"}</th>
+                        <th className="py-2.5">{language === "pt" ? "ganho diário" : "daily gain"}</th>
+                        <th className="py-2.5">{language === "pt" ? "meta (milestone)" : "milestone target"}</th>
+                        <th className="py-2.5">{language === "pt" ? "média diária" : "avg daily"}</th>
+                        <th className="py-2.5 text-right">&nbsp;</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-panel-border/40">
+                      {tracks.map((track, index) => {
+                        return (
+                          <tr key={track.id} className="hover:bg-wine-dark/20">
+                            <td className="py-3 pr-4 font-semibold text-white truncate max-w-[150px]">{track.title}</td>
+                            <td className="py-3">
+                              <input
+                                type="number"
+                                value={track.totalStreams || 0}
+                                onChange={(e) => handleTrackChange(index, "totalStreams", parseInt(e.target.value) || 0)}
+                                className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-28 focus:outline-none font-mono"
+                              />
+                            </td>
+                            <td className="py-3">
+                              <input
+                                type="number"
+                                value={track.dailyGain || 0}
+                                onChange={(e) => handleTrackChange(index, "dailyGain", parseInt(e.target.value) || 0)}
+                                className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-24 focus:outline-none font-mono"
+                              />
+                            </td>
+                            <td className="py-3">
+                              <input
+                                type="number"
+                                value={track.milestoneTarget}
+                                onChange={(e) => handleTrackChange(index, "milestoneTarget", parseInt(e.target.value) || 0)}
+                                className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-28 focus:outline-none font-mono"
+                              />
+                            </td>
+                            <td className="py-3">
+                              <input
+                                type="number"
+                                value={track.avgDailyGain}
+                                onChange={(e) => handleTrackChange(index, "avgDailyGain", parseInt(e.target.value) || 0)}
+                                className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-24 focus:outline-none font-mono"
+                              />
+                            </td>
+                            <td className="py-3 text-right">
+                              <button
+                                onClick={() => handleStartEditHistory(track.id)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-neutral-900 hover:bg-neutral-800 border border-panel-border hover:border-neutral-700 text-neutral-300 hover:text-white rounded cursor-pointer transition-colors"
+                                title={language === "pt" ? "Editar Histórico Diário" : "Edit Daily History"}
+                              >
+                                <Calendar className="w-3.5 h-3.5 animate-pulse" />
+                                <span>{language === "pt" ? "Histórico" : "History"}</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Albums streams table */}
+              <div className="space-y-4">
+                <h4 className="text-base font-bold text-white uppercase tracking-wider border-b border-panel-border pb-2">
+                  {language === "pt" ? "lista de álbuns" : "albums list"}
+                </h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse text-left text-xs font-mono text-neutral-300">
+                    <thead>
+                      <tr className="border-b border-panel-border text-neutral-500 uppercase">
+                        <th className="py-2.5">{language === "pt" ? "título do álbuns" : "album title"}</th>
+                        <th className="py-2.5">{language === "pt" ? "ano" : "year"}</th>
+                        <th className="py-2.5">{language === "pt" ? "streams totais" : "total streams"}</th>
+                        <th className="py-2.5">{language === "pt" ? "ganho diário" : "daily gain"}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-panel-border/40">
+                      {albums.map((album, index) => {
+                        return (
+                          <tr key={album.id} className="hover:bg-wine-dark/20">
+                            <td className="py-3 font-semibold text-white">{album.title}</td>
+                            <td className="py-3">{album.year}</td>
+                            <td className="py-3">
+                              <input
+                                type="number"
+                                value={album.totalStreams || 0}
+                                onChange={(e) => handleAlbumChange(index, "totalStreams", parseInt(e.target.value) || 0)}
+                                className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-32 focus:outline-none font-mono"
+                              />
+                            </td>
+                            <td className="py-3">
+                              <input
+                                type="number"
+                                value={album.dailyGain || 0}
+                                onChange={(e) => handleAlbumChange(index, "dailyGain", parseInt(e.target.value) || 0)}
+                                className="bg-neutral-900 border border-neutral-800 rounded px-2 py-1 text-xs text-white w-28 focus:outline-none font-mono"
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}

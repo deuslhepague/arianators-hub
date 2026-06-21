@@ -1,0 +1,24 @@
+Track: "bang-bang-kat-krazy-remix"
+  - Value 128 repeated for 3 consecutive days (from 2026-02-06 to 2026-02-08)
+
+Track: "dont-wanna-break-up-again"
+  - Value 64514 repeated for 3 consecutive days (from 2026-03-14 to 2026-03-16)
+
+Track: "eternal-sunshine"
+  - Value 103756 repeated for 3 consecutive days (from 2026-03-14 to 2026-03-16)
+
+Track: "ghostin"
+  - Value 152675 repeated for 155 consecutive days (from 2026-01-01 to 2026-06-04)
+
+Track: "imperfect-for-you"
+  - Value 53383 repeated for 3 consecutive days (from 2026-03-14 to 2026-03-16)
+
+Track: "step-on-up"
+  - Value 40387 repeated for 155 consecutive days (from 2026-01-01 to 2026-06-04)
+
+Track: "supernatural"
+  - Value 269377 repeated for 3 consecutive days (from 2026-03-14 to 2026-03-16)
+
+Track: "we-cant-be-friends-wait-for-your-love"
+  - Value 1287225 repeated for 49 consecutive days (from 2026-03-19 to 2026-05-06)
+  - Value 1190866 repeated for 8 consecutive days (from 2026-05-16 to 2026-05-23)

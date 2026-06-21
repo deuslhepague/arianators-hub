@@ -141,12 +141,16 @@ export async function POST(req: Request) {
       if (track && track.id) {
         const ref = db.collection("catalog").doc("config").collection("tracks").doc(track.id);
         const existingTrack = existingTracksMap.get(track.id);
-        const mergedStreams = {
-          ...(existingTrack?.streams || {}),
-          ...(track.streams || {})
-        };
+        const shouldOverwrite = track.overwriteStreams === true;
+        const mergedStreams = shouldOverwrite
+          ? (track.streams || {})
+          : {
+              ...(existingTrack?.streams || {}),
+              ...(track.streams || {})
+            };
+        const { overwriteStreams, ...trackClean } = track;
         const dataToSave = {
-          ...track,
+          ...trackClean,
           streams: mergedStreams
         };
         ops.push({ type: 'set', ref, data: dataToSave });
@@ -157,12 +161,16 @@ export async function POST(req: Request) {
       if (album && album.id) {
         const ref = db.collection("catalog").doc("config").collection("albums").doc(album.id);
         const existingAlbum = existingAlbumsMap.get(album.id);
-        const mergedStreams = {
-          ...(existingAlbum?.streams || {}),
-          ...(album.streams || {})
-        };
+        const shouldOverwrite = album.overwriteStreams === true;
+        const mergedStreams = shouldOverwrite
+          ? (album.streams || {})
+          : {
+              ...(existingAlbum?.streams || {}),
+              ...(album.streams || {})
+            };
+        const { overwriteStreams, ...albumClean } = album;
         const dataToSave = {
-          ...album,
+          ...albumClean,
           streams: mergedStreams
         };
         ops.push({ type: 'set', ref, data: dataToSave });
