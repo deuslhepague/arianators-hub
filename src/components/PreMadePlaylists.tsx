@@ -18,33 +18,33 @@ interface PreMadePlaylist {
 
 const PREMADE_PLAYLISTS: PreMadePlaylist[] = [
   {
-    id: "def-focus",
-    title: "eternal sunshine focus playlist #1",
-    descriptionEn: "alternates versions of the main focus track with optimized filler tracks. fillers are short interludes and sounds from other artists to keep focus counts clean.",
-    descriptionPt: "alterna versões da faixa foco principal com faixas de preenchimento otimizadas. os fillers são interlúdios curtos e sons de outros artistas para manter a contagem limpa.",
-    duration: "3h 15m",
-    tracksCount: 65,
-    spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DX4sWSpwq3LiO",
+    id: "road-to-1b",
+    title: "road to 1 billion",
+    descriptionEn: "ariana 300x + short songs from other people 100x. optimized playlist for maximum focus streams.",
+    descriptionPt: "ariana 300x + músicas curtas de outras pessoas 100x. playlist otimizada para máximo de streams focados.",
+    duration: "14h 21m",
+    tracksCount: 400,
+    spotifyUrl: "https://open.spotify.com/playlist/0ftRprrN0bgVYHOa3IcNyt",
     category: "Focus"
   },
   {
-    id: "def-sleep",
-    title: "overnight sleep streamer (8h)",
-    descriptionEn: "designed for overnight loops. smooth ambient beats, alternative album versions, and short white noise transitions to maintain continuous playback safely.",
-    descriptionPt: "projetada para loops durante a noite. batidas ambientes suaves, versões alternativas de álbuns e transições curtas de ruído branco para manter reprodução contínua.",
-    duration: "8h 00m",
-    tracksCount: 155,
-    spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DX1s9tixj214q",
-    category: "Sleep"
+    id: "barely-tried",
+    title: "cause i barely tried",
+    descriptionEn: "hate that i made you love me 120x + short ariana songs 60x + short songs from other people 60x.",
+    descriptionPt: "hate that i made you love me 120x + músicas curtas da ariana 60x + músicas curtas de outras pessoas 60x.",
+    duration: "9h 18m",
+    tracksCount: 240,
+    spotifyUrl: "https://open.spotify.com/playlist/7e1k6Fu8lH8rEOn7Ahk0Rm",
+    category: "Focus"
   },
   {
-    id: "def-hits",
-    title: "arianator era classics",
-    descriptionEn: "a secondary playlist combining the focus track versions with iconic hits to build general era performance between main shifts.",
-    descriptionPt: "uma playlist secundária combinando versões da faixa foco com hits icônicos para construir performance geral da era entre as mudanças principais.",
-    duration: "4h 45m",
-    tracksCount: 92,
-    spotifyUrl: "https://open.spotify.com/playlist/37i9dQZF1DX6E34Cwb98Zq",
+    id: "mixed-hits",
+    title: "mixed",
+    descriptionEn: "we can't be friends 20x + into you 20x + thank u, next 60x + positions 40x + no tears left to cry 40x + needy 20x. short songs from other people 100x.",
+    descriptionPt: "we can't be friends 20x + into you 20x + thank u, next 60x + positions 40x + no tears left to cry 40x + needy 20x. músicas curtas de outras pessoas 100x.",
+    duration: "14h 38m",
+    tracksCount: 300,
+    spotifyUrl: "https://open.spotify.com/playlist/2EXvlUi9kBYQF6QUvGlJUA",
     category: "Hits"
   },
 ];
@@ -101,6 +101,9 @@ export default function PreMadePlaylists() {
               <h3 className={`text-lg md:text-xl font-bold group-hover:underline mb-3 ${textMain}`}>
                 {playlist.title}
               </h3>
+              <p className={`text-xs mb-4 font-mono leading-relaxed ${textSub}`}>
+                {language === "pt" ? playlist.descriptionPt : playlist.descriptionEn}
+              </p>
             </div>
 
             <div className="border-t-2 border-foreground pt-4 flex items-center justify-between gap-4">

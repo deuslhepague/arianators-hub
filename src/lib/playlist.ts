@@ -3,10 +3,11 @@
 export const DEFAULT_FOCUS_TRACKS = [
   "https://open.spotify.com/track/20jbSiX29FDX4oQxBXyUEi",
   "https://open.spotify.com/track/3iy2QuCtCzpWnR6tia39AB",
+  "https://open.spotify.com/track/2HhRoFkJ6ejaTQmKKrgmhe",
+  "https://open.spotify.com/track/6flVfBnGgTLZBT1hAt1XfJ",
   "https://open.spotify.com/track/3sLsICFrhFhXZlRFb3f2jB",
-  "https://open.spotify.com/track/3idrvUQYONMAJ6EgZZqiL8",
-  "https://open.spotify.com/track/6flVfBnGgTLZBT1hAt1XfJ"
-];
+  "https://open.spotify.com/track/3idrvUQYONMAJ6EgZZqiL8"
+  ];
 
 export const DEFAULT_HITS_TRACKS = [
   "https://open.spotify.com/track/51ZQ1vr10ffzbwIjDCwqm4",  // WE CAN'T BE FRIENDS

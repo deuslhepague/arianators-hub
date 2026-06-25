@@ -10,7 +10,19 @@ import {
   gerarPlaylistMesclada,
   PlaylistConfig
 } from "@/lib/playlist";
-import { Music, Settings, HelpCircle, Copy, Search, Trash2, Plus, RefreshCw, ExternalLink } from "lucide-react";
+import { Music, Settings, HelpCircle, Copy, Search, Trash2, Plus, RefreshCw, ExternalLink, ChevronLeft, ChevronRight } from "lucide-react";
+
+const getTrackIdFromUrl = (url: string): string => {
+  try {
+    const parts = url.split("/track/");
+    if (parts.length > 1) {
+      return parts[1].split("?")[0];
+    }
+    return url;
+  } catch (e) {
+    return url;
+  }
+};
 
 interface FocusTrackOption {
   id: string;
@@ -177,10 +189,11 @@ const DATABASE_HITS: HitTrackDefinition[] = [
   },
   {
     id: "hate-that-i-made-you",
-    name: "hate that i made you",
+    name: "hate that i made you love me",
     versions: [
       "https://open.spotify.com/track/20jbSiX29FDX4oQxBXyUEi",
       "https://open.spotify.com/track/3iy2QuCtCzpWnR6tia39AB",
+      "https://open.spotify.com/track/2HhRoFkJ6ejaTQmKKrgmhe",
       "https://open.spotify.com/track/6flVfBnGgTLZBT1hAt1XfJ",
       "https://open.spotify.com/track/3sLsICFrhFhXZlRFb3f2jB",
       "https://open.spotify.com/track/3idrvUQYONMAJ6EgZZqiL8"
@@ -190,10 +203,7 @@ const DATABASE_HITS: HitTrackDefinition[] = [
     id: "into-you",
     name: "into you",
     versions: [
-      "https://open.spotify.com/track/3AnwddQhBCSDUwlvbRGyDA",
-      "https://open.spotify.com/track/1Oj6gVTwhWYXngPgU8oznO",
       "https://open.spotify.com/track/63y6xWR4gXz7bnUGOk8iI6",
-      "https://open.spotify.com/track/5kbzrk1p3d056KYOU41QDh",
       "https://open.spotify.com/track/76FZM38RC8XaAjJ77CVTNe",
       "https://open.spotify.com/track/49gRYU6hBWgSH2JVixGkJq",
       "https://open.spotify.com/track/2jCbLUgE3x4QBCwl0I75aI",
@@ -204,9 +214,12 @@ const DATABASE_HITS: HitTrackDefinition[] = [
       "https://open.spotify.com/track/239XCXr8DQl18IUNBow8Kg",
       "https://open.spotify.com/track/7woND3TZisiEyZY6HQr0Zr",
       "https://open.spotify.com/track/4cHgU6PIcI88fxLsgaAnxe",
-      "https://open.spotify.com/track/6y3bJ52O0Q0y1fWoda9vr6",
+      "https://open.spotify.com/track/5kbzrk1p3d056KYOU41QDh",
       "https://open.spotify.com/track/4Bsd7hSLYvqaZFRyaWiw1E",
-      "https://open.spotify.com/track/73u1ip4mDThhjg0I8AmR2V"
+      "https://open.spotify.com/track/73u1ip4mDThhjg0I8AmR2V",
+      "https://open.spotify.com/track/3AnwddQhBCSDUwlvbRGyDA",
+      "https://open.spotify.com/track/1Oj6gVTwhWYXngPgU8oznO",
+      "https://open.spotify.com/track/6y3bJ52O0Q0y1fWoda9vr6"
     ]
   },
   {
@@ -214,7 +227,9 @@ const DATABASE_HITS: HitTrackDefinition[] = [
     name: "motive",
     versions: [
       "https://open.spotify.com/track/5GkQIP5mWPi4KZLLXeuFTT",
-      "https://open.spotify.com/track/5VipERQ1ofCowecoFg2MVU"
+      "https://open.spotify.com/track/5VipERQ1ofCowecoFg2MVU",
+      "https://open.spotify.com/track/3Hgk2MiY3hIIp6Hmf1fxeW",
+      "https://open.spotify.com/track/0zB7iPxmJNRVfc4pWDlnq0"
     ]
   },
   {
@@ -228,9 +243,9 @@ const DATABASE_HITS: HitTrackDefinition[] = [
     id: "no-tears-left-to-cry",
     name: "no tears left to cry",
     versions: [
-      "https://open.spotify.com/track/5SxkdsY1ufZzoq9iXceLw9",
       "https://open.spotify.com/track/2qT1uLXPVPzGgFOx4jtEuo",
       "https://open.spotify.com/track/4wZqeCVR3fwS5MFoRtAnia",
+      "https://open.spotify.com/track/5SxkdsY1ufZzoq9iXceLw9",
       "https://open.spotify.com/track/0SQIUoCxtaKpEYK0C5jJSw",
       "https://open.spotify.com/track/5t1P3j6QsGSRboEAh7iKPs",
       "https://open.spotify.com/track/7xGb10s2tLKnxts5Qvjsxc",
@@ -258,7 +273,9 @@ const DATABASE_HITS: HitTrackDefinition[] = [
     name: "pov",
     versions: [
       "https://open.spotify.com/track/3UoULw70kMsiVXxW0L3A33",
-      "https://open.spotify.com/track/1bj8x3ERN9gSc2NfJIpc76"
+      "https://open.spotify.com/track/1bj8x3ERN9gSc2NfJIpc76",
+      "https://open.spotify.com/track/3RP1eXaK8f4rwqY9fRKVRF",
+      "https://open.spotify.com/track/7mNsHed5BYlpmgFqAAkvsM"
     ]
   },
   {
@@ -306,7 +323,7 @@ const DATABASE_HITS: HitTrackDefinition[] = [
   },
   {
     id: "thank-u-next",
-    name: "thank u next",
+    name: "thank u, next",
     versions: [
       "https://open.spotify.com/track/2rPE9A1vEgShuZxxzR2tZH",
       "https://open.spotify.com/track/3e9HZxeyfWwjeyPAMmWSSQ",
@@ -341,7 +358,24 @@ const DATABASE_HITS: HitTrackDefinition[] = [
     id: "the-way",
     name: "the way",
     versions: [
-      "https://open.spotify.com/track/0S4RKPbRDA72tvKwVdXQqe"
+      "https://open.spotify.com/track/0S4RKPbRDA72tvKwVdXQqe",
+      "https://open.spotify.com/track/5FhVKyPvQ2rnimFwNAxu2C",
+      "https://open.spotify.com/track/3WJCkJPIOk2ltt12BHJWJY",
+      "https://open.spotify.com/track/0onZ1TwmOAbLqWOXKhEvpF",
+      "https://open.spotify.com/track/1Onx2O64wzyA7ZzOsBBqBJ",
+      "https://open.spotify.com/track/3HAQ4fEd3opmo09LJIHOX2",
+      "https://open.spotify.com/track/1NTof5FmyQo5YciNJtqtJM",
+      "https://open.spotify.com/track/5Gbb5sEd2AcDFMaY60N3wu",
+      "https://open.spotify.com/track/2n4y1jo4oUB6KTVWID8O9S",
+      "https://open.spotify.com/track/52hpSaCHjkqoxE9Tpr2w0p",
+      "https://open.spotify.com/track/0S4RKPbRDA72tvKwVdXQqe",
+      "https://open.spotify.com/track/5FhVKyPvQ2rnimFwNAxu2C",
+      "https://open.spotify.com/track/6csiA8EczbxAHDewDL7QQl",
+      "https://open.spotify.com/track/0qdx5s2ryTmuRJeyIyNWWe",
+      "https://open.spotify.com/track/6csiA8EczbxAHDewDL7QQl",
+      "https://open.spotify.com/track/0qdx5s2ryTmuRJeyIyNWWe",
+      "https://open.spotify.com/track/5G1sFEVDwB1dy1cFwQuEpT",
+      "https://open.spotify.com/track/7iowREYA23mrLjv8bouwnp"
     ]
   },
   {
@@ -402,6 +436,151 @@ const DATABASE_HITS: HitTrackDefinition[] = [
       "https://open.spotify.com/track/1VaOPhMmCDaTbu9ETOjQcr",
       "https://open.spotify.com/track/1PWtQcmhVK7pVpWB1fZY0z",
       "https://open.spotify.com/track/0APmATBiC2CULW3YiKPwlH"
+    ],
+  },
+  {
+    id: "positions",
+    name: "positions",
+    versions: [
+      "https://open.spotify.com/track/35mvY5S1H3J2QZyna3TFe0",
+      "https://open.spotify.com/track/1eNoiSrvdNWZfCOrP37jSf",
+      "https://open.spotify.com/track/7igeByaBM0MgGsgXtNxDJ7",
+      "https://open.spotify.com/track/7wLK9PAeZMBDVKsm7ptOMn",
+      "https://open.spotify.com/track/3DFnLXa69NVlOjbhTbXXNn",
+      "https://open.spotify.com/track/0edCZS4cbBSFiVvVgBy5oc",
+      "https://open.spotify.com/track/4fLUGNHcSrqPYydrIHyLB9",
+      "https://open.spotify.com/track/0u4O4iyDncVzgyBqNeAwUv",
+      "https://open.spotify.com/track/1xFVBG4B149leF5qj4kvof",
+      "https://open.spotify.com/track/7qwQQD53UPHUxRtKplUgdt",
+      "https://open.spotify.com/track/4sP9XNzr5YkiSx5GEgl7YZ",
+      "https://open.spotify.com/track/5DvZAbmEQtxCjQ5HTufZzJ",
+      "https://open.spotify.com/track/5x8kSO7nQxUQ9D5QY9SC8c",
+      "https://open.spotify.com/track/7DH05XWXYYyvijw0ktX6Vj"
+    ],
+  },
+  {
+    id: "one-last-time",
+    name: "one last time",
+    versions: [
+      "https://open.spotify.com/track/7xoUc6faLbCqZO6fQEYprd",
+      "https://open.spotify.com/track/50rGbTr2wrWnlIelPQxi87",
+      "https://open.spotify.com/track/7bJwvubZZaoGE1AGEfu8Fi",
+      "https://open.spotify.com/track/1CAksvEO6oRHd9bBKWAfuY",
+      "https://open.spotify.com/track/4Y8KhqNtOMToFdUOAJpECt",
+      "https://open.spotify.com/track/7rsLMII8g2bqmJNvgNgLk7",
+      "https://open.spotify.com/track/1SP0qh2iRe8tByUy3Y8Tx0",
+      "https://open.spotify.com/track/3mbaod7ARSaS3fr5mOMkk1",
+      "https://open.spotify.com/track/6iRvhzkX1XjeUcQr1ey1ZP",
+      "https://open.spotify.com/track/0e6qFb4yA7MkyHA9Cpb6c1",
+      "https://open.spotify.com/track/1043bXNgWDCWM2rhvieIh9",
+      "https://open.spotify.com/track/792wdrg1YVhzdpLLy2rLeC"
+    ]
+  },
+  {
+    id: "problem",
+    name: "problem",
+    versions: [
+      "https://open.spotify.com/track/7vS3Y0IKjde7Xg85LWIEdP",
+      "https://open.spotify.com/track/5w048fMWMdqxT2UAyXXB1Z",
+      "https://open.spotify.com/track/7fYbFYt7X4FZvuJJC90EX0",
+      "https://open.spotify.com/track/7E8edqa0m0ASLXkLfmWY03",
+      "https://open.spotify.com/track/6WMhHZ8DK94KXzJVMXzig5",
+      "https://open.spotify.com/track/6DIJNt6nfvvlqn8zvNVEtu",
+      "https://open.spotify.com/track/7Ao6LlHB0fQHAyMWSMs9zO",
+      "https://open.spotify.com/track/0NCEyOzVW7FF5nL1MBecM7",
+      "https://open.spotify.com/track/3cySlItpiPiIAzU3NyHCJf",
+      "https://open.spotify.com/track/0NenBmcPtlaBGYAhU798G4",
+      "https://open.spotify.com/track/6xCNYRfzZtoQRo1xruPmNq",
+      "https://open.spotify.com/track/4jwPNgd0ux1wE4TgETVIT3",
+      "https://open.spotify.com/track/1f9MXvV39Mrx2TAEx5M2TB",
+      "https://open.spotify.com/track/075QrWReNxCc4Ubcqd2oqL",
+      "https://open.spotify.com/track/65AaVEYJkgOkjfrI9geI5P"
+    ]
+  },
+  {
+    id: "santa-tell-me",
+    name: "santa tell me",
+    versions: [
+      "https://open.spotify.com/track/0lizgQ7Qw35od7CYaoMBZb",
+      "https://open.spotify.com/track/6V2JPFiAeqfZjM3A8VNr5q",
+      "https://open.spotify.com/track/1ADjWm8QNhgNV8yCNNgQ1T",
+      "https://open.spotify.com/track/6rSrX1te6gVYcHVXMGfcCQ",
+      "https://open.spotify.com/track/6zqCoMa7k6wYD3OXJxAV5w",
+      "https://open.spotify.com/track/0un8vLp0hSudAJNLjImTEE",
+      "https://open.spotify.com/track/62AGBURrH2EsqA7yblCGXP",
+      "https://open.spotify.com/track/0Tq23DcxKDVRojIU8Nq1r8",
+      "https://open.spotify.com/track/0iQSsR3A5lbwU0V2C2uM4C",
+      "https://open.spotify.com/track/2QqkMsF2nAbD30IXAwGXvV",
+      "https://open.spotify.com/track/4RJZThhcGy5LP8ZXx3ulSr",
+      "https://open.spotify.com/track/0vHDowYb85LDID5OuAvuz1",
+      "https://open.spotify.com/track/5c97Z367MAY3ddnLr9o849",
+      "https://open.spotify.com/track/0cItQNWv1FrJj19IPd2CAh",
+      "https://open.spotify.com/track/17LfGE2Fi0LRfYyppMkWbF",
+      "https://open.spotify.com/track/7KDbvrIytRaZmIE8KCj0Ul",
+      "https://open.spotify.com/track/7Hw5WKhzMSvp26cxVLDWPI",
+      "https://open.spotify.com/track/7jlJEjBTWzg8tvz2X7ZYKZ",
+      "https://open.spotify.com/track/0F9mxLWu8a872V2wBwVCRv",
+      "https://open.spotify.com/track/72RHiZSlEqtI9qIhKcTNZe",
+      "https://open.spotify.com/track/6qGK9PQ4nS2NctDQ3Z8kvV",
+      "https://open.spotify.com/track/5lSDpgeucP7d0uziC2tU3W",
+      "https://open.spotify.com/track/1CR5uTc3FdIaoHCBlwYxj6",
+      "https://open.spotify.com/track/0ibPkrkVYVPoJoQhiZr3J6",
+      "https://open.spotify.com/track/4TLGxQKakWLFzDaTwCNFvN",
+      "https://open.spotify.com/track/60hOUgTstkEfzcxyKXfkNQ",
+      "https://open.spotify.com/track/4ylyqIgwXaA8Mnco1jYA83",
+      "https://open.spotify.com/track/7KnXhjQSTiG78fhtXimCgh",
+      "https://open.spotify.com/track/6McVc4s8LzJCqUjYxIsLuJ",
+      "https://open.spotify.com/track/22aEKEl46zsfU3avxiSxHd",
+      "https://open.spotify.com/track/3hy0j7oWJD1PIPmAamD7CJ",
+      "https://open.spotify.com/track/1RC8hzjFjNh10dghi17j2E",
+      "https://open.spotify.com/track/5wiEgTtkciYkZFivVDnYeo",
+      "https://open.spotify.com/track/5DtLc4u1Aias7kdb1UXfTG",
+      "https://open.spotify.com/track/0wslRYCORfo5bhhiOMBB6Y",
+      "https://open.spotify.com/track/0OtF0EDmpCDjiY01D4cqyy",
+      "https://open.spotify.com/track/7od71nKShaWUuGpQb9UASV",
+      "https://open.spotify.com/track/1WwU0QHTqSYyvx5l8BZkFg",
+      "https://open.spotify.com/track/2YCJGX8j5nXri6PlEDsxuu",
+      "https://open.spotify.com/track/1NVVXX8Nf5ClHOhjAEA28i",
+      "https://open.spotify.com/track/1QGRV86qSaQ5j9Hpcu6oYH",
+      "https://open.spotify.com/track/4lzJbb04NAnTMcw2JaXBJF",
+      "https://open.spotify.com/track/3J3ILk9ASvnRBmZAd9sfde",
+      "https://open.spotify.com/track/1VMmdu45ncsu8vVKRt1W8s",
+      "https://open.spotify.com/track/02hpL9qLNmAoW9jLJt3LHe",
+      "https://open.spotify.com/track/0iEcx023v8qJd4Vj0ypGEZ",
+      "https://open.spotify.com/track/5Grs7nejHVIqfArW2Po1Nx",
+      "https://open.spotify.com/track/3amzEcjw25IPVYqN7DVyoL",
+      "https://open.spotify.com/track/671uHEYKRR1e7k1FCxsdMf",
+      "https://open.spotify.com/track/18rMyTaM76eX7rEbV0TJAJ",
+      "https://open.spotify.com/track/1dysgzKAYZC47G7ytNoydn",
+      "https://open.spotify.com/track/4y5uYNFhT5WEjK8YIAZXAp",
+      "https://open.spotify.com/track/5EQeNKL3IO7sfWIXtTn1Gf",
+      "https://open.spotify.com/track/2Df0XndUpzaMTzEnrVfoBz",
+      "https://open.spotify.com/track/44PXmsdL4bSFFv54zU3AeD",
+      "https://open.spotify.com/track/6BcCDA0MF98eJUXTB5L3f7",
+      "https://open.spotify.com/track/4IVis2Ahz6TVi83jr8MyKL",
+      "https://open.spotify.com/track/5A14kQgIeL9nOuK283iK3w",
+      "https://open.spotify.com/track/78nun1pJFemLzDt8Tl2O5B",
+      "https://open.spotify.com/track/5CX8vF2xpBFz6E23ILSnQ1"
+    ]
+  },
+  {
+    id: "love-me-harder",
+    name: "love me harder",
+    versions: [
+      "https://open.spotify.com/track/5J4ZkQpzMUFojo1CtAZYpn",
+      "https://open.spotify.com/track/3RknjKzaZkjBqIGEN1Q871",
+      "https://open.spotify.com/track/1aKsg5b9sOngINaQXbB0P7",
+      "https://open.spotify.com/track/2Pm40TLDw6G78thGOdsJW7",
+      "https://open.spotify.com/track/45wBTYlOx3FsuFluuuRRQh",
+      "https://open.spotify.com/track/0e5q6Z47J4oU5S0gvfjKpi",
+      "https://open.spotify.com/track/0FsoAtabqinl5yi1o5vF1G",
+      "https://open.spotify.com/track/7ffCshvfjMGGNm5mhIyOun",
+      "https://open.spotify.com/track/4hAwnqT5tLxywuTipn3A51",
+      "https://open.spotify.com/track/3XhZO6P0xUC1LUFLAueRaf",
+      "https://open.spotify.com/track/7HE1FnMtSsRotzIAQPXpr5",
+      "https://open.spotify.com/track/3Y47AdAfvzC0Go7JihsvxT",
+      "https://open.spotify.com/track/0TmrhQAcZXeOwsLLZfNSy6",
+      "https://open.spotify.com/track/7ugGN2cNJtdu10hAMH6ygQ"
     ]
   }
 ];
@@ -413,13 +592,9 @@ export default function PlaylistGenerator() {
 
   // Helper to determine initial focus track ID
   const getInitialFocusId = (): string => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("arianator_active_focus_track_id");
-      if (stored && DATABASE_HITS.some(hit => hit.id === stored)) {
-        return stored;
-      }
-    }
-    return "hate-that-i-made-you";
+    return DATABASE_HITS.some(hit => hit.id === "hate-that-i-made-you")
+      ? "hate-that-i-made-you"
+      : DATABASE_HITS[0]?.id || "";
   };
 
   // Selection states
@@ -429,21 +604,77 @@ export default function PlaylistGenerator() {
     const defaults = ["everyday", "pov", "yes-and-", "the-boy-is-mine", "breathin"];
     return defaults.filter(id => id !== initialFocus);
   });
-  const [hitVersionLimits, setHitVersionLimits] = useState<Record<string, number>>(() => {
+  // Tracks disabled versions for each supporting hit ID
+  const [disabledHitVersions, setDisabledHitVersions] = useState<Record<string, string[]>>(() => {
     const initialFocus = getInitialFocusId();
-    const limits: Record<string, number> = {
-      "everyday": 2,
-      "pov": 2,
-      "yes-and-": 2,
-      "the-boy-is-mine": 2,
-      "breathin": 2,
-    };
-    if (initialFocus in limits) {
-      delete limits[initialFocus];
-    }
-    return limits;
+    const defaults = ["everyday", "pov", "yes-and-", "the-boy-is-mine", "breathin"];
+    const initialDisabled: Record<string, string[]> = {};
+
+    defaults.forEach(id => {
+      if (id !== initialFocus) {
+        const hitDef = DATABASE_HITS.find(h => h.id === id);
+        if (hitDef && hitDef.versions.length > 2) {
+          // Disable all versions after the first 2 by default
+          initialDisabled[id] = hitDef.versions.slice(2);
+        }
+      }
+    });
+    return initialDisabled;
   });
+
+  const [expandedHits, setExpandedHits] = useState<Record<string, boolean>>({});
+
+  const toggleHitVersion = (hitId: string, versionUrl: string) => {
+    setDisabledHitVersions(prev => {
+      const disabled = prev[hitId] || [];
+      const updatedDisabled = disabled.includes(versionUrl)
+        ? disabled.filter(url => url !== versionUrl)
+        : [...disabled, versionUrl];
+      return {
+        ...prev,
+        [hitId]: updatedDisabled
+      };
+    });
+  };
+
+  const toggleHitExpansion = (hitId: string) => {
+    setExpandedHits(prev => ({
+      ...prev,
+      [hitId]: !prev[hitId]
+    }));
+  };
+
+  const handleHitCountChange = (hitId: string, hitDef: HitTrackDefinition, newCount: number) => {
+    const count = Math.max(1, Math.min(hitDef.versions.length, newCount));
+    const disabled = hitDef.versions.slice(count);
+    setDisabledHitVersions(prev => ({
+      ...prev,
+      [hitId]: disabled
+    }));
+  };
+
   const [hitSearchQuery, setHitSearchQuery] = useState<string>("");
+
+  // Tracks disabled versions for each focus track ID
+  const [disabledFocusVersions, setDisabledFocusVersions] = useState<Record<string, string[]>>({});
+
+  const toggleFocusVersion = (versionUrl: string) => {
+    setDisabledFocusVersions(prev => {
+      const disabled = prev[selectedFocusId] || [];
+      const updatedDisabled = disabled.includes(versionUrl)
+        ? disabled.filter(url => url !== versionUrl)
+        : [...disabled, versionUrl];
+      return {
+        ...prev,
+        [selectedFocusId]: updatedDisabled
+      };
+    });
+  };
+
+  const getFocusTrackVersions = (): string[] => {
+    const disabled = disabledFocusVersions[selectedFocusId] || [];
+    return activeFocusTrack.versions.filter(version => !disabled.includes(version));
+  };
 
   // Playlist Configuration State
   const [repetitions, setRepetitions] = useState(20);
@@ -463,6 +694,100 @@ export default function PlaylistGenerator() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [stepMsg, setStepMsg] = useState("");
+
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load state from localStorage on mount
+  useEffect(() => {
+    try {
+      const storedFocusId = localStorage.getItem("arianator_active_focus_track_id");
+      if (storedFocusId && DATABASE_HITS.some(hit => hit.id === storedFocusId)) {
+        setSelectedFocusId(storedFocusId);
+      }
+
+      const storedHitIds = localStorage.getItem("arianator_selected_hit_ids");
+      if (storedHitIds) setSelectedHitIds(JSON.parse(storedHitIds));
+
+      const storedDisabledHits = localStorage.getItem("arianator_disabled_hit_versions");
+      if (storedDisabledHits) setDisabledHitVersions(JSON.parse(storedDisabledHits));
+
+      const storedDisabledFocus = localStorage.getItem("arianator_disabled_focus_versions");
+      if (storedDisabledFocus) setDisabledFocusVersions(JSON.parse(storedDisabledFocus));
+
+      const storedRepetitions = localStorage.getItem("arianator_repetitions");
+      if (storedRepetitions) setRepetitions(Number(JSON.parse(storedRepetitions)));
+
+      const storedFocusQty = localStorage.getItem("arianator_focus_qty");
+      if (storedFocusQty) setFocusQty(Number(JSON.parse(storedFocusQty)));
+
+      const storedHitsQty = localStorage.getItem("arianator_hits_qty");
+      if (storedHitsQty) setHitsQty(Number(JSON.parse(storedHitsQty)));
+
+      const storedFillersQty = localStorage.getItem("arianator_fillers_qty");
+      if (storedFillersQty) setFillersQty(Number(JSON.parse(storedFillersQty)));
+
+      const storedShortsQty = localStorage.getItem("arianator_shorts_qty");
+      if (storedShortsQty) setShortsQty(Number(JSON.parse(storedShortsQty)));
+
+      const storedPrimaryTable = localStorage.getItem("arianator_primary_table");
+      if (storedPrimaryTable) setPrimaryTable(Number(JSON.parse(storedPrimaryTable)));
+
+      const storedPlaylistName = localStorage.getItem("arianator_playlist_name");
+      if (storedPlaylistName) setPlaylistName(JSON.parse(storedPlaylistName));
+
+      const storedPlaylistDesc = localStorage.getItem("arianator_playlist_desc");
+      if (storedPlaylistDesc) setPlaylistDesc(JSON.parse(storedPlaylistDesc));
+
+      const storedGeneratedTracks = localStorage.getItem("arianator_generated_tracks_list");
+      if (storedGeneratedTracks) setGeneratedTracksList(JSON.parse(storedGeneratedTracks));
+
+      const storedGeneratedUrl = localStorage.getItem("arianator_generated_url");
+      if (storedGeneratedUrl) setGeneratedUrl(JSON.parse(storedGeneratedUrl));
+
+    } catch (e) {
+      console.error("Error loading state from localStorage", e);
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // Save state to localStorage when changes occur (only after load is completed)
+  useEffect(() => {
+    if (!isLoaded) return;
+    try {
+      localStorage.setItem("arianator_active_focus_track_id", selectedFocusId);
+      localStorage.setItem("arianator_selected_hit_ids", JSON.stringify(selectedHitIds));
+      localStorage.setItem("arianator_disabled_hit_versions", JSON.stringify(disabledHitVersions));
+      localStorage.setItem("arianator_disabled_focus_versions", JSON.stringify(disabledFocusVersions));
+      localStorage.setItem("arianator_repetitions", JSON.stringify(repetitions));
+      localStorage.setItem("arianator_focus_qty", JSON.stringify(focusQty));
+      localStorage.setItem("arianator_hits_qty", JSON.stringify(hitsQty));
+      localStorage.setItem("arianator_fillers_qty", JSON.stringify(fillersQty));
+      localStorage.setItem("arianator_shorts_qty", JSON.stringify(shortsQty));
+      localStorage.setItem("arianator_primary_table", JSON.stringify(primaryTable));
+      localStorage.setItem("arianator_playlist_name", JSON.stringify(playlistName));
+      localStorage.setItem("arianator_playlist_desc", JSON.stringify(playlistDesc));
+      localStorage.setItem("arianator_generated_tracks_list", JSON.stringify(generatedTracksList));
+      localStorage.setItem("arianator_generated_url", JSON.stringify(generatedUrl));
+    } catch (e) {
+      console.error("Error writing to localStorage", e);
+    }
+  }, [
+    isLoaded,
+    selectedFocusId,
+    selectedHitIds,
+    disabledHitVersions,
+    disabledFocusVersions,
+    repetitions,
+    focusQty,
+    hitsQty,
+    fillersQty,
+    shortsQty,
+    primaryTable,
+    playlistName,
+    playlistDesc,
+    generatedTracksList,
+    generatedUrl
+  ]);
 
   // Retrieve selected Focus track object
   const activeFocusTrack = useMemo(() => {
@@ -488,7 +813,7 @@ export default function PlaylistGenerator() {
   useEffect(() => {
     if (selectedHitIds.includes(selectedFocusId)) {
       setSelectedHitIds(prev => prev.filter(id => id !== selectedFocusId));
-      setHitVersionLimits(prev => {
+      setDisabledHitVersions(prev => {
         const next = { ...prev };
         delete next[selectedFocusId];
         return next;
@@ -511,10 +836,10 @@ export default function PlaylistGenerator() {
     if (!selectedHitIds.includes(id)) {
       setSelectedHitIds(prev => [...prev, id]);
       const hitDef = DATABASE_HITS.find(h => h.id === id);
-      if (hitDef) {
-        setHitVersionLimits(prev => ({
+      if (hitDef && hitDef.versions.length > 2) {
+        setDisabledHitVersions(prev => ({
           ...prev,
-          [id]: hitDef.versions.length
+          [id]: hitDef.versions.slice(2)
         }));
       }
     }
@@ -523,25 +848,44 @@ export default function PlaylistGenerator() {
 
   const removeHit = (id: string) => {
     setSelectedHitIds(prev => prev.filter(item => item !== id));
-    setHitVersionLimits(prev => {
+    setDisabledHitVersions(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setExpandedHits(prev => {
       const next = { ...prev };
       delete next[id];
       return next;
     });
   };
 
+  const moveHit = (index: number, direction: "left" | "right") => {
+    const nextIndex = direction === "left" ? index - 1 : index + 1;
+    if (nextIndex < 0 || nextIndex >= selectedHitIds.length) return;
+
+    setSelectedHitIds(prev => {
+      const copy = [...prev];
+      const temp = copy[index];
+      copy[index] = copy[nextIndex];
+      copy[nextIndex] = temp;
+      return copy;
+    });
+  };
+
   const getTabela2Tracks = (): string[] => {
-    return DATABASE_HITS
-      .filter(h => selectedHitIds.includes(h.id))
+    return selectedHitIds
+      .map(id => DATABASE_HITS.find(h => h.id === id))
+      .filter((h): h is HitTrackDefinition => !!h)
       .flatMap(h => {
-        const limit = hitVersionLimits[h.id] !== undefined ? hitVersionLimits[h.id] : h.versions.length;
-        return h.versions.slice(0, limit);
+        const disabled = disabledHitVersions[h.id] || [];
+        return h.versions.filter(version => !disabled.includes(version));
       });
   };
 
   const generateLocalSequence = (): string[] => {
     const config: PlaylistConfig = {
-      tabela1: activeFocusTrack.versions,
+      tabela1: getFocusTrackVersions(),
       tabela2: getTabela2Tracks(),
       tabela3: DEFAULT_FILLER_TRACKS,
       tabela4: DEFAULT_SHORT_TRACKS,
@@ -562,6 +906,28 @@ export default function PlaylistGenerator() {
     setGeneratedUrl(null);
 
     try {
+      if (focusQty > 0 && getFocusTrackVersions().length === 0) {
+        throw new Error(
+          language === "pt"
+            ? "selecione ao menos uma versão da música foco ou defina a quantidade de música principal para 0."
+            : "select at least one version of the focus track or set focus tracks qty to 0."
+        );
+      }
+      if (hitsQty > 0) {
+        for (const hitId of selectedHitIds) {
+          const hitDef = DATABASE_HITS.find(h => h.id === hitId);
+          if (hitDef) {
+            const disabled = disabledHitVersions[hitId] || [];
+            if (disabled.length === hitDef.versions.length) {
+              throw new Error(
+                language === "pt"
+                  ? `selecione ao menos uma versão para o hit "${hitDef.name}" ou remova-o.`
+                  : `select at least one version for the hit "${hitDef.name}" or remove it.`
+              );
+            }
+          }
+        }
+      }
       const tracks = generateLocalSequence();
       if (tracks.length === 0) {
         throw new Error(
@@ -637,17 +1003,48 @@ export default function PlaylistGenerator() {
               onChange={(e) => setSelectedFocusId(e.target.value)}
               className={`w-full border-2 border-foreground rounded-none px-3 py-3 text-base focus:outline-none cursor-pointer font-serif ${theme === "light" ? "bg-white text-neutral-950 focus:border-black" : "bg-neutral-950 text-white focus:border-white"}`}
             >
-              {DATABASE_HITS.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.name} ({opt.versions.length} {language === "pt" ? "versões" : "versions"})
-                </option>
-              ))}
+              {[...DATABASE_HITS]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.name} ({opt.versions.length} {language === "pt" ? "versões" : "versions"})
+                  </option>
+                ))}
             </select>
 
-            <div className={`text-xs space-y-1.5 p-4 border-2 border-foreground rounded-none font-mono max-h-36 overflow-y-auto ${theme === "light" ? "bg-neutral-50 text-neutral-600" : "bg-neutral-950/60 text-neutral-400"}`}>
-              {activeFocusTrack.versions.map((url, i) => (
-                <div key={i} className="truncate">{i + 1}: {url}</div>
-              ))}
+            <div className="space-y-2">
+              <span className={`block text-xs font-bold uppercase ${theme === "light" ? "text-neutral-700" : "text-neutral-300"}`}>
+                {language === "pt" ? "selecione as versões a serem rotacionadas:" : "select versions to rotate:"}
+              </span>
+              <div className={`text-xs space-y-2 p-4 border-2 border-foreground rounded-none font-mono max-h-48 overflow-y-auto ${theme === "light" ? "bg-neutral-50 text-neutral-600" : "bg-neutral-950/60 text-neutral-400"}`}>
+                {activeFocusTrack.versions.map((url, i) => {
+                  const isChecked = !(disabledFocusVersions[selectedFocusId] || []).includes(url);
+                  return (
+                    <label key={i} className="flex items-center gap-3 cursor-pointer select-none py-1 hover:opacity-80 transition-opacity">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleFocusVersion(url)}
+                        className={`w-4 h-4 border-2 border-foreground rounded-none accent-foreground cursor-pointer focus:ring-0 ${theme === "light" ? "bg-white text-black" : "bg-neutral-950 text-white"}`}
+                      />
+                      <span className="truncate flex-1">
+                        <span className="font-bold mr-1">{i + 1}:</span>
+                        {getTrackIdFromUrl(url)}
+                      </span>
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className={`hover:opacity-75 ${theme === "light" ? "text-neutral-600" : "text-neutral-400"}`}
+                        title={language === "pt" ? "abrir no spotify" : "open in spotify"}
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -712,18 +1109,22 @@ export default function PlaylistGenerator() {
                     : "no supporting hits selected. search and add some above."}
                 </div>
               ) : (
-                <div className="flex flex-wrap gap-2">
-                  {selectedHitIds.map(hitId => {
+                <div className="flex flex-wrap gap-2.5">
+                  {selectedHitIds.map((hitId, idx) => {
                     const hitDef = DATABASE_HITS.find(h => h.id === hitId);
                     if (!hitDef) return null;
+                    const disabled = disabledHitVersions[hitId] || [];
+                    const activeCount = hitDef.versions.length - disabled.length;
+                    const isExpanded = !!expandedHits[hitId];
                     return (
                       <div
                         key={hitId}
-                        className={`flex flex-wrap items-center gap-3 px-3 py-1.5 border-2 border-foreground rounded-none text-xs font-semibold font-mono shadow-[2px_2px_0px_0px_var(--foreground)] ${theme === "light" ? "bg-neutral-100 text-neutral-850" : "bg-neutral-900 text-white"}`}
+                        className={`relative flex items-center gap-3 px-3 py-1.5 border-2 border-foreground rounded-none text-xs font-semibold font-mono shadow-[2px_2px_0px_0px_var(--foreground)] ${theme === "light" ? "bg-neutral-100 text-neutral-850" : "bg-neutral-900 text-white"}`}
                       >
                         <span className="truncate max-w-[150px] sm:max-w-[200px]" title={hitDef.name}>
                           {hitDef.name}
                         </span>
+
                         <div className="flex items-center gap-1 border-l pl-2 border-foreground">
                           <span className="text-[10px] uppercase font-bold text-neutral-500">
                             {language === "pt" ? "versões:" : "versions:"}
@@ -732,13 +1133,10 @@ export default function PlaylistGenerator() {
                             type="number"
                             min={1}
                             max={hitDef.versions.length}
-                            value={hitVersionLimits[hitId] ?? hitDef.versions.length}
+                            value={activeCount}
                             onChange={(e) => {
-                              const val = Math.max(1, Math.min(hitDef.versions.length, parseInt(e.target.value) || 1));
-                              setHitVersionLimits(prev => ({
-                                ...prev,
-                                [hitId]: val
-                              }));
+                              const val = parseInt(e.target.value) || 1;
+                              handleHitCountChange(hitId, hitDef, val);
                             }}
                             className={`w-10 text-center rounded-none border-2 border-foreground focus:outline-none font-mono text-xs ${theme === "light"
                               ? "bg-white text-black"
@@ -749,6 +1147,36 @@ export default function PlaylistGenerator() {
                             / {hitDef.versions.length}
                           </span>
                         </div>
+
+                        {/* Reorder Buttons */}
+                        <div className="flex items-center gap-0.5 border-l pl-2 border-foreground">
+                          <button
+                            onClick={() => moveHit(idx, "left")}
+                            disabled={idx === 0}
+                            className={`transition-colors cursor-pointer p-0.5 rounded border border-transparent enabled:hover:border-foreground disabled:opacity-30 ${theme === "light" ? "text-neutral-500 enabled:hover:text-black" : "text-neutral-400 enabled:hover:text-white"}`}
+                            title={language === "pt" ? "mover para a esquerda" : "move left"}
+                          >
+                            <ChevronLeft className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => moveHit(idx, "right")}
+                            disabled={idx === selectedHitIds.length - 1}
+                            className={`transition-colors cursor-pointer p-0.5 rounded border border-transparent enabled:hover:border-foreground disabled:opacity-30 ${theme === "light" ? "text-neutral-500 enabled:hover:text-black" : "text-neutral-400 enabled:hover:text-white"}`}
+                            title={language === "pt" ? "mover para a direita" : "move right"}
+                          >
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Dropdown Toggle Button */}
+                        <button
+                          onClick={() => toggleHitExpansion(hitId)}
+                          className={`transition-colors cursor-pointer p-0.5 rounded border border-transparent hover:border-foreground ${theme === "light" ? "text-neutral-500 hover:text-black" : "text-neutral-400 hover:text-white"}`}
+                          title={language === "pt" ? "seleção manual" : "manual selection"}
+                        >
+                          <Settings className="w-3.5 h-3.5" />
+                        </button>
+
                         <button
                           onClick={() => removeHit(hitId)}
                           className={`transition-colors cursor-pointer ml-1 p-0.5 rounded ${theme === "light" ? "text-neutral-400 hover:text-black" : "text-neutral-500 hover:text-white"}`}
@@ -756,6 +1184,53 @@ export default function PlaylistGenerator() {
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
+
+                        {/* Absolute Manual Selection Dropdown */}
+                        {isExpanded && (
+                          <div
+                            className={`absolute top-full left-0 mt-1.5 border-2 border-foreground z-40 p-3 space-y-2 max-h-48 overflow-y-auto w-64 shadow-[3px_3px_0px_0px_var(--foreground)] ${theme === "light" ? "bg-white text-neutral-800" : "bg-neutral-950 text-neutral-200"}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="font-bold text-[9px] uppercase border-b border-foreground pb-1 flex justify-between items-center select-none">
+                              <span>{language === "pt" ? "seleção manual:" : "manual selection:"}</span>
+                              <button
+                                onClick={() => toggleHitExpansion(hitId)}
+                                className="underline hover:opacity-85 cursor-pointer text-[9px]"
+                              >
+                                {language === "pt" ? "fechar" : "close"}
+                              </button>
+                            </div>
+                            <div className="space-y-1.5">
+                              {hitDef.versions.map((url, i) => {
+                                const isChecked = !disabled.includes(url);
+                                return (
+                                  <label key={i} className="flex items-center gap-2 cursor-pointer py-0.5 hover:opacity-85 transition-opacity font-mono text-[9px]">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => toggleHitVersion(hitId, url)}
+                                      className={`w-3.5 h-3.5 border border-foreground rounded-none accent-foreground cursor-pointer focus:ring-0 ${theme === "light" ? "bg-white text-black" : "bg-neutral-950 text-white"}`}
+                                    />
+                                    <span className="truncate flex-1">
+                                      <span className="font-bold mr-1">{i + 1}:</span>
+                                      {getTrackIdFromUrl(url)}
+                                    </span>
+                                    <a
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className={`hover:opacity-75 ${theme === "light" ? "text-neutral-500" : "text-neutral-400"}`}
+                                      title={language === "pt" ? "abrir no spotify" : "open in spotify"}
+                                    >
+                                      <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -845,7 +1320,7 @@ export default function PlaylistGenerator() {
 
             <div className="border-t-2 border-foreground pt-5 space-y-4 font-mono">
               <span className={`block text-xs font-bold uppercase ${theme === "light" ? "text-neutral-700" : "text-neutral-300"}`}>
-                {language === "pt" ? "quantidades por ciclo (máximo 2)" : "cycle quantities (per round - max 2)"}
+                {language === "pt" ? "quantidades por ciclo (ideal: 1-2)" : "cycle quantities (per round - ideal: 1-2)"}
               </span>
 
               <div className="grid grid-cols-2 gap-4">
@@ -853,10 +1328,9 @@ export default function PlaylistGenerator() {
                   <label className={`block text-xs mb-1 ${theme === "light" ? "text-neutral-500" : "text-neutral-450"}`}>{language === "pt" ? "música principal" : "focus tracks"}</label>
                   <input
                     type="number"
-                    min={1}
-                    max={2}
+                    min={0}
                     value={focusQty}
-                    onChange={(e) => setFocusQty(Math.max(1, Math.min(2, parseInt(e.target.value) || 1)))}
+                    onChange={(e) => setFocusQty(Math.max(0, parseInt(e.target.value) || 0))}
                     className={`w-full border-2 border-foreground rounded-none p-2 text-sm text-center ${theme === "light" ? "bg-white text-neutral-950" : "bg-neutral-900 text-white"}`}
                   />
                 </div>
@@ -865,9 +1339,8 @@ export default function PlaylistGenerator() {
                   <input
                     type="number"
                     min={0}
-                    max={2}
                     value={hitsQty}
-                    onChange={(e) => setHitsQty(Math.max(0, Math.min(2, parseInt(e.target.value) || 0)))}
+                    onChange={(e) => setHitsQty(Math.max(0, parseInt(e.target.value) || 0))}
                     className={`w-full border-2 border-foreground rounded-none p-2 text-sm text-center ${theme === "light" ? "bg-white text-neutral-950" : "bg-neutral-900 text-white"}`}
                   />
                 </div>
@@ -875,10 +1348,9 @@ export default function PlaylistGenerator() {
                   <label className={`block text-xs mb-1 ${theme === "light" ? "text-neutral-500" : "text-neutral-455"}`}>{language === "pt" ? "interlúdios" : "filler tracks"}</label>
                   <input
                     type="number"
-                    min={1}
-                    max={2}
+                    min={0}
                     value={fillersQty}
-                    onChange={(e) => setFillersQty(Math.max(1, Math.min(2, parseInt(e.target.value) || 1)))}
+                    onChange={(e) => setFillersQty(Math.max(0, parseInt(e.target.value) || 0))}
                     className={`w-full border-2 border-foreground rounded-none p-2 text-sm text-center ${theme === "light" ? "bg-white text-neutral-950" : "bg-neutral-900 text-white"}`}
                   />
                 </div>
@@ -887,9 +1359,8 @@ export default function PlaylistGenerator() {
                   <input
                     type="number"
                     min={0}
-                    max={2}
                     value={shortsQty}
-                    onChange={(e) => setShortsQty(Math.max(0, Math.min(2, parseInt(e.target.value) || 0)))}
+                    onChange={(e) => setShortsQty(Math.max(0, parseInt(e.target.value) || 0))}
                     className={`w-full border-2 border-foreground rounded-none p-2 text-sm text-center ${theme === "light" ? "bg-white text-neutral-950" : "bg-neutral-900 text-white"}`}
                   />
                 </div>
@@ -940,8 +1411,8 @@ export default function PlaylistGenerator() {
 
           <div className="text-xs font-serif leading-relaxed mt-2 p-4 border-2 border-foreground rounded-none bg-wine-deep/40 text-neutral-450 shadow-[2px_2px_0px_0px_var(--foreground)]">
             💡 {language === "pt"
-              ? "copie os links das músicas e cole-os no campo de busca do spotify para montar a sua playlist rapidamente, ou adicione-os na fila na sequência listada."
-              : "copy the track links and paste them into spotify's search bar to build your playlist, or manually queue them in this exact order."}
+              ? "copie os links das faixas e cole-os diretamente dentro de uma playlist no aplicativo do Spotify para Desktop para montá-la instantaneamente."
+              : "copy the track links and paste them directly into a playlist inside the Spotify Desktop app to build it instantly."}
           </div>
 
           {/* Tracks preview list */}
